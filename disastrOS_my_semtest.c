@@ -13,7 +13,7 @@ void semopen_test() {
         exit(1);
     }
 
-    printf("TEST SUCCESSFUL: semOpen")
+    printf("TEST SUCCESSFUL: semOpen");
 }
 
 int main (int argc, char** argv) {
@@ -24,7 +24,7 @@ int main (int argc, char** argv) {
     }
    
     // TEST: semoOpen
-    printf("Testing semOpen")
+    printf("Testing semOpen\n");
     disastrOS_start(semopen_test, 0, logfilename);
 
     return 0;
