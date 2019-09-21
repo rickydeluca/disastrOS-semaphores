@@ -327,3 +327,21 @@ void disastrOS_printStatus(){
   PCBList_print(&zombie_list);
   printf("\n***********************************************\n\n");
 };
+
+// My syscall to handle the semaphores
+// I'm using the constants DSOS_CALL_* that were defined in "disastrOS_constants.h"
+int disastrOS_semOpen(int sem_id, int count){
+      return disastrOS_syscall(DSOS_CALL_SEMOPEN, sem_id, count);
+}
+
+int disastrOS_semClose(int fd){
+      return disastrOS_syscall(DSOS_CALL_SEMCLOSE, fd);
+}
+
+int disastrOS_semPost(int fd){
+      return disastrOS_syscall(DSOS_CALL_SEMPOST, fd);
+}
+
+int disastrOS_semWait(int fd){
+      return disastrOS_syscall(DSOS_CALL_SEMWAIT, fd);
+}
