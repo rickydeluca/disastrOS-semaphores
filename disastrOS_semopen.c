@@ -5,12 +5,14 @@
 #include "disastrOS_syscalls.h"
 #include "disastrOS_semaphore.h"
 #include "disastrOS_semdescriptor.h"
+#include "disastrOS_globals.h"
+#include "disastrOS_constants.h"
 
 void internal_semOpen() {
   
   // Get the id and the count value of the semaphore
-  int sem_id = running->syscalls_args[0];
-  int sem_count = running->syscalls_args[1];
+  int sem_id = running->syscall_args[0];
+  int sem_count = running->syscall_args[1];
 
   printf("Try to open sempahore with ID: %d\n", sem_id);
 
@@ -19,7 +21,7 @@ void internal_semOpen() {
 
   if (sem) {
       printf("There is already an opened semaphore with the ID: %d\n", sem_id);
-      running->syscall_retvalue = DSOS_ESEMAPHORECREATE;    
+      running->syscall_retvalue = DSOS_ERESOURCEOPEN;    
       return;
     }
 
@@ -29,11 +31,11 @@ void internal_semOpen() {
   sem = Semaphore_alloc(sem_id, sem_count);
   if (!sem) {                                               // Check if the semaphore was allocated with no problems
     printf("ERROR: Semaphore allocation!\n");
-    running->syscall_retvalue = DSOS_ECREATESEM;
+    running->syscall_retvalue = DSOS_ERESOURCECREATE;
     return;
   }
 
-  printf("Semaphore allocation completed\n")
+  printf("Semaphore allocation completed\n");
 
   // Add created semaphore to global list
   List_insert(&semaphores_list, semaphores_list.last, (ListItem*)sem);
@@ -42,9 +44,9 @@ void internal_semOpen() {
   printf("Allocating SemDescriptor\n");
 
   SemDescriptor* sem_fd = SemDescriptor_alloc(running->last_sem_fd, sem, running);
-  if (!desc) {
+  if (!sem_fd) {
      printf("ERROR: SemDescriptor allocation!\n");
-     running->syscall_retvalue = DSOS_ECREATEFD;
+     running->syscall_retvalue = DSOS_ERESOURCECREATE;
      return;
   }
 
@@ -63,7 +65,7 @@ void internal_semOpen() {
   SemDescriptorPtr* sem_fd_ptr = SemDescriptorPtr_alloc(sem_fd);
   if(!sem_fd_ptr) {
       printf("ERROR: SemDescriptorPtr allocation!\n");
-      running->syscall_retvalue = DSOS_ECREATEPTR;
+      running->syscall_retvalue = DSOS_ERESOURCECREATE;
       return;
   }
 
