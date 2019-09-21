@@ -13,6 +13,8 @@
 
 #endif //_DISASTROS_DEBUG_
 
+extern ListHead semaphores_list;
+
 // initializes the structures and spawns a fake init process
 void disastrOS_start(void (*f)(void*), void* args, char* logfile);
 
