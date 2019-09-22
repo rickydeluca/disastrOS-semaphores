@@ -146,6 +146,11 @@ void disastrOS_start(void (*f)(void*), void* f_args, char* logfile){
   Timer_init();
   Resource_init();
   Descriptor_init();
+
+  // Functions useful for using semaphore functions
+  Semaphore_init();
+  SemDescriptor_init();
+  
   init_pcb=0;
 
   // populate the vector of syscalls and number of arguments for each syscall
@@ -184,7 +189,7 @@ void disastrOS_start(void (*f)(void*), void* f_args, char* logfile){
 
   // fill these with the syscall handlers
   syscall_vector[DSOS_CALL_SEMOPEN]      = internal_semOpen;
-  syscall_numarg[DSOS_CALL_SEMOPEN]      = 1;
+  syscall_numarg[DSOS_CALL_SEMOPEN]      = 2; // I'd to increase the number of args for the semopen handler
 
   syscall_vector[DSOS_CALL_SEMCLOSE]      = internal_semClose;
   syscall_numarg[DSOS_CALL_SEMCLOSE]      = 1;
