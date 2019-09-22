@@ -5,18 +5,18 @@
 #include "disastrOS_semaphore.h"
 
 /* Testing semOpen */
-void semopen_test() {
-    int sem_id  = 0;
-    int count   = 0;
-    if (disastrOS_semOpen(sem_id, 0) < 0) {
-        printf("TEST ERROR: semOpen");
+void semopen_test(void* args) {
+    int sem_id  = 1;
+    int count   = 1;
+    if (disastrOS_semOpen(sem_id, count) < 0) {
+        printf("TEST ERROR: semOpen\n");
         exit(1);
     }
 
-    printf("TEST SUCCESSFUL: semOpen");
+    printf("TEST SUCCESSFUL: semOpen\n");
 }
 
-int main (int argc, char** argv) {
+int main(int argc, char** argv) {
     
     char* logfilename=0;
     if (argc>1) {
