@@ -13,10 +13,10 @@
 void internal_semClose(){
   
   // Get the SemDescriptor of the semaphore to close from SemDescrpitorList of the process
-  int sem_id = running->syscall_args[0];
+  int sem_fd = running->syscall_args[0];
 
-  SemDescriptor* sem_fd =  SemDescriptorList_byFd(&running->sem_descriptors, sem_id);
-  if (!sem_fd) {
+  SemDescriptor* sem_desc =  SemDescriptorList_byFd(&running->sem_descriptors, sem_fd);
+  if (!sem_desc) {
     printf("ERROR: SemDescriptor not found in the process\n");
     running->syscall_retvalue = DSOS_ERESOURCENOFD;
     return;
