@@ -14,7 +14,8 @@ void internal_semOpen() {
   int sem_id = running->syscall_args[0];
   int sem_count = running->syscall_args[1];
 
-  printf("Try to open sempahore with ID: %d\n", sem_id);
+  printf("Try to open sempahore with ID: %d ", sem_id);
+  printf("and count: %d\n", sem_count);
 
   // Check if there is already an opened semaphore with te same ID
   Semaphore* sem = SemaphoreList_byId(&semaphores_list, sem_id);
@@ -27,7 +28,7 @@ void internal_semOpen() {
 
   // Allocate new semaphore and add it to the global list
   printf("Allocating new semaphore with ID: %d\n", sem_id);
-
+  
   sem = Semaphore_alloc(sem_id, sem_count);
   if (!sem) {                                               // Check if the semaphore was allocated with no problems
     printf("ERROR: Semaphore allocation!\n");
