@@ -6,6 +6,22 @@
 #include "disastrOS_semaphore.h"
 #include "disastrOS_semdescriptor.h"
 
+// Include these libs to use the error code and other variables useful (like semaphore_list)
+#include "disastrOS_globals.h"
+#include "disastrOS_constants.h"
+
 void internal_semClose(){
-  // do stuff :)
+  
+  // Get the SemDescriptor of the semaphore to close from SemDescrpitorList of the process
+  int sem_id = running->syscall_args[0];
+
+  SemDescriptor* sem_fd =  SemDescriptorList_byFd(&running->sem_descriptors, sem_id);
+  if (!sem_fd) {
+    printf("ERROR: SemDescriptor not found in the process\n");
+    running->syscall_retvalue = DSOS_ERESOURCENOFD;
+    return;
+  }
+
+  // On success return 0
+  running->syscall_retvalue = 0;
 }
