@@ -14,7 +14,7 @@ void internal_semClose(){
 
   int sem_fd = running->syscall_args[0];
   
-  printf("Obtaining the semaphore... ");
+  printf("Obtaining the semaphore descriptor... ");
 
   // Get the SemDescriptor of the semaphore to close from SemDescrpitorList of the process
   SemDescriptor* sem_desc =  SemDescriptorList_byFd(&running->sem_descriptors, sem_fd);
