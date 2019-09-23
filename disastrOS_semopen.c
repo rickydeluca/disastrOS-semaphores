@@ -73,12 +73,13 @@ void internal_semOpen() {
   printf("SemDescriptorPtr allocation completed!\n");
 
   // Add the descriptor to the semaphore created
-  printf("Adding despitor to the semaphore struct...");
+  printf("Adding descriptor to the semaphore struct... ");
 
   sem_fd->ptr = sem_fd_ptr;
   List_insert(&sem->descriptors, sem->descriptors.last, (ListItem*) sem_fd_ptr);
 
   printf("Done!\n");
+  printf("\n \n");
 
   // Return the sem descriptor to the process
   running->syscall_retvalue = sem_fd->fd;

@@ -29,8 +29,6 @@ void semclose_test(void* args) {
 
     int sem_fd  = 0;
 
-    printf("Opening semaphore with ID: %d...\n", sem_id);
-
     sem_fd = disastrOS_semOpen(sem_id, count);
     if (sem_fd < 0) {
         printf("TEST ERROR: semOpen\n");
@@ -39,7 +37,7 @@ void semclose_test(void* args) {
 
     //printf(" Done!\n");
 
-    printf ("Closing the semaphore with ID: %d...\n", sem_id);
+    printf ("Closing the semaphore with ID: %d\n", sem_id);
 
     if (disastrOS_semClose(sem_fd) != 0) {
         printf("TEST ERROR: semClose\n");
