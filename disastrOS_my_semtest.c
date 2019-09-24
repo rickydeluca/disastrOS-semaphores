@@ -54,8 +54,9 @@ void semclose_test(void* args) {
 }
 
 // SEMWAIT TEST
-void semwait_test(void* args) {
-    int sem_id      = 0;
+
+void semwait_test_2(void* args) {
+    int sem_id      = *((int*)args);
     int sem_count   = 30;
 
     int sem_fd = 0;
@@ -63,7 +64,7 @@ void semwait_test(void* args) {
 
     SemDescriptor* sem_desc = (SemDescriptor*) SemDescriptorList_byFd(&(running->sem_descriptors), sem_fd );
 
-    printf("Try testing semWait with 31 iterations");
+    printf("Try testing semWait with 31 iterations\n");
 
     int i;
     for (i = 0; i < 31; i++) {
@@ -79,6 +80,34 @@ void semwait_test(void* args) {
     exit(EXIT_SUCCESS);
 }
 
+void semwait_test(void* args) {
+    int sem_id      = *((int*)args);
+    int sem_count   = 30;
+
+    int sem_fd = 0;
+    sem_fd = disastrOS_semOpen(sem_id, sem_count);
+
+    // Spanning a new process
+    sem_id++;
+    disastrOS_spawn(semwait_test_2, &sem_id);
+
+    SemDescriptor* sem_desc = (SemDescriptor*) SemDescriptorList_byFd(&(running->sem_descriptors), sem_fd );
+
+    printf("Try testing semWait with 31 iterations\n");
+
+    int i;
+    for (i = 0; i < 31; i++) {
+        printf("Iteration number: \t %d\n", i);
+        printf("Sem count value: \t %d\n", sem_desc->semaphore->count);
+        if(disastrOS_semWait(sem_fd) != 0) {
+            printf("TEST ERROR: semWait\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    printf("TEST SUCCESS: semWait\n");
+    exit(EXIT_SUCCESS);
+}
 
 int main(int argc, char** argv) {
     int test_num;
@@ -99,8 +128,9 @@ int main(int argc, char** argv) {
         printf("Testing semClose\n");
         disastrOS_start(semclose_test, 0, logfilename);
     } else if (test_num == 3) {
+        int sem_id = 0;
         printf("Testing semWait\n");
-        disastrOS_start(semwait_test, 0, logfilename);
+        disastrOS_start(semwait_test, &sem_id, logfilename);
     }else {
         printf("Wrong input. Sayonara!");
     }
