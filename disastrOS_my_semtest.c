@@ -10,7 +10,7 @@
 #define     EXIT_FAILURE        1
 #define     EXIT_SUCCESSFUL     0
 
-/* SEMOPEN TEST */
+/***************************** SEMOPEN TEST *****************************/
 void semopen_test(void* args) {
     int sem_id  = 1;
     int count   = 1;
@@ -23,8 +23,9 @@ void semopen_test(void* args) {
     exit(EXIT_SUCCESSFUL);
 
 }
+/*************************************************************************/
 
-/* SEMCLOSE TEST */
+/***************************** SEMCLOSE TEST *****************************/
 void semclose_test(void* args) {
     
     int sem_id  = 1;
@@ -52,9 +53,10 @@ void semclose_test(void* args) {
     printf("TEST SUCCESSFUL: semClose\n");
     exit(EXIT_SUCCESSFUL);
 }
+/*************************************************************************/
 
-// SEMWAIT TEST
 
+/***************************** SEMWAIT TEST ******************************/
 void semwait_test_2(void* args) {
     int sem_id      = *((int*)args);
     int sem_count   = 30;
@@ -108,6 +110,67 @@ void semwait_test(void* args) {
     printf("TEST SUCCESS: semWait\n");
     exit(EXIT_SUCCESS);
 }
+/*************************************************************************/
+
+
+/***************************** SEMPOST TEST ******************************/
+int num_iter = 30;
+
+typedef struct sempostTest_data {
+    int* buff;
+} sempostTest_data;
+
+void sempostTest_consumer(void* args) {
+    
+
+    int i;
+    for (i = 0; i < num_iter; i++) {
+        disastrOS_semWait();
+        disastrOS_semWait()
+    }
+}
+
+void sempostTest_producer(void* args) {
+
+}
+
+void sempost_test(void* args) {
+    int full_sem_id  = 0;
+    int empty_sem_id = 1;
+    int mutex_sem_id = 2;
+
+    // Allocate the buffer that is the shared variable
+    int buff_size = 10;
+    int buff[buff_size];
+
+    // Allcate args to pass to the threads
+    sempostTest_data data;
+
+    // Populate the buffer
+    int i;
+    for (i = 0; i < 10; i++) {
+        buff[i] = 1;
+    }   // I should have at this point: buff = {1 1 1 1 1 1 1 1 1 1}
+
+    // Open the semaphores in the main process so I can close them later
+    int full_sem_fd  = disastrOS_semOpen(full_sem_id, 0);
+    int empty_sem_fd = disastrOS_semOpen(empty_sem_id, buff_size);
+    int mutex_sem_fd = disastrOS_semOpen(mutex_sem_id, 1);
+
+    // Lanch a consumer and a producert
+    disastrOS_spawn(sempostTest_consumer, buff);
+    disastrOS_spawn(sempostTest_producer, buff);
+
+    // Close semaphores opend previously
+    disastrOS_semClose(full_sem_fd);
+    disastrOS_semClose(empty_sem_fd);
+    disastrOS_semClose(mutex_sem_fd);
+
+    printf("TEST SUCCESSFUL: semPost\n");
+    exit(EXIT_SUCCESS);
+}
+/*************************************************************************/
+
 
 int main(int argc, char** argv) {
     int test_num;
