@@ -93,7 +93,7 @@ void semwait_test(void* args) {
     sem_id++;
     disastrOS_spawn(semwait_test_2, &sem_id);
 
-    SemDescriptor* sem_desc = (SemDescriptor*) SemDescriptorList_byFd(&(running->sem_descriptors), sem_fd );
+    SemDescriptor* sem_desc = (SemDescriptor*) SemDescriptorList_byFd( &(running->sem_descriptors), sem_fd );
 
     printf("Try testing semWait with 31 iterations\n");
 
@@ -118,33 +118,64 @@ int num_iter = 30;
 
 typedef struct sempostTest_data {
     int* buff;
+    int full_sem_fd;
+    int empty_sem_fd;
+    int mutex_sem_fd;
 } sempostTest_data;
 
 void sempostTest_consumer(void* args) {
+    sempostTest_data* data = (sempostTest_data*) args;    
     
-
+    int full_sem    = data->full_sem_fd;
+    int empty_sem   = data->empty_sem_fd;
+    int mutex_sem   = data->mutex_sem_fd;
+    
     int i;
     for (i = 0; i < num_iter; i++) {
-        disastrOS_semWait();
-        disastrOS_semWait()
+        // Check on entry
+        disastrOS_semWait(full_sem);
+        disastrOS_semWait(mutex_sem);
+
+        // Access from consumer to the shared buffer
+        data->buff[i] = data->buff[i] + 1;
+
+        disastrOS_semPost(mutex_sem);
+        disastrOS_semPost(empty_sem);
     }
 }
 
 void sempostTest_producer(void* args) {
+    sempostTest_data* data = (sempostTest_data*) args;    
+    
+    int full_sem    = data->full_sem_fd;
+    int empty_sem   = data->empty_sem_fd;
+    int mutex_sem   = data->mutex_sem_fd;
+    
+    int i;
+    for (i = 0; i < num_iter; i++) {
+        // Check on entry
+        disastrOS_semWait(empty_sem);
+        disastrOS_semWait(mutex_sem);
 
-}
+        // Access from consumer to the shared buffer
+        data->buff[i] = data->buff[i] - 1;
+
+        disastrOS_semPost(mutex_sem);
+        disastrOS_semPost(full_sem);
+    }
+}   
 
 void sempost_test(void* args) {
     int full_sem_id  = 0;
     int empty_sem_id = 1;
     int mutex_sem_id = 2;
 
+    // Allcate the struct to pass to the child processes
+    sempostTest_data data;
+
     // Allocate the buffer that is the shared variable
     int buff_size = 10;
     int buff[buff_size];
-
-    // Allcate args to pass to the threads
-    sempostTest_data data;
 
     // Populate the buffer
     int i;
@@ -157,9 +188,20 @@ void sempost_test(void* args) {
     int empty_sem_fd = disastrOS_semOpen(empty_sem_id, buff_size);
     int mutex_sem_fd = disastrOS_semOpen(mutex_sem_id, 1);
 
-    // Lanch a consumer and a producert
-    disastrOS_spawn(sempostTest_consumer, buff);
-    disastrOS_spawn(sempostTest_producer, buff);
+    // Fill the struct data for the childs
+    data.buff           = buff;
+    data.full_sem_fd    = full_sem_fd;
+    data.empty_sem_fd   = empty_sem_fd;
+    data.mutex_sem_fd   = mutex_sem_fd;
+
+
+    // Lanch a consumer and a producer
+    disastrOS_spawn(sempostTest_consumer, &data);
+    disastrOS_spawn(sempostTest_producer, &data);
+
+    // Wait for childs to finish
+    disastrOS_wait(0, NULL);
+    disastrOS_wait(0, NULL);
 
     // Close semaphores opend previously
     disastrOS_semClose(full_sem_fd);
@@ -181,7 +223,7 @@ int main(int argc, char** argv) {
     }
    
     // Single function tests
-    printf("What would you like to test?\n    1 - semOpen\n    2 - semClose\n    3 - semWait\n");
+    printf("What would you like to test?\n    1 - semOpen\n    2 - semClose\n    3 - semWait\n    4 - semPost\n");
 
     scanf("%d", &test_num);
     if (test_num == 1) {
@@ -194,8 +236,11 @@ int main(int argc, char** argv) {
         int sem_id = 0;
         printf("Testing semWait\n");
         disastrOS_start(semwait_test, &sem_id, logfilename);
-    }else {
-        printf("Wrong input. Sayonara!");
+    } else if (test_num == 4) {
+        printf("Testing semPost\n");
+        disastrOS_start(sempost_test, 0, logfilename);
+    } else {
+        printf("Wrong input. Sayonara!\n");
     }
 
     return 0;
