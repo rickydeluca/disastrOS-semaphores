@@ -17,30 +17,32 @@ void internal_semOpen() {
   printf("Try to open sempahore with ID: %d ", sem_id);
   printf("and count: %d\n", sem_count);
 
-  // Check if there is already an opened semaphore with te same ID
+  // Check if there is already an opened semaphore with the same ID
   Semaphore* sem = SemaphoreList_byId(&semaphores_list, sem_id);
 
-  if (sem) {
-      printf("There is already an opened semaphore with the ID: %d\n", sem_id);
-      running->syscall_retvalue = DSOS_ERESOURCEOPEN;    
-      return;
+  // If there is already an opened semaphore with this ID I don'n need to allocate a new one.
+  // In this way multiple process can use the same semaphore
+  if (!sem) {
+      printf("There isn't already an opened semaphore with the ID: %d\n. So I allocate it", sem_id);
+      // running->syscall_retvalue = DSOS_ERESOURCEOPEN;    
+      // return;
+      // Allocate new semaphore and add it to the global list
+      printf("Allocating new semaphore with ID: %d\n", sem_id);
+      
+      sem = Semaphore_alloc(sem_id, sem_count);
+      if (!sem) {                                               // Check if the semaphore was allocated with no problems
+        printf("ERROR: Semaphore allocation!\n");
+        running->syscall_retvalue = DSOS_ERESOURCECREATE;
+        return;
+      }
+
+      printf("Semaphore allocation completed\n");
+
+      // Add created semaphore to global list
+      List_insert(&semaphores_list, semaphores_list.last, (ListItem*)sem);
     }
 
-  // Allocate new semaphore and add it to the global list
-  printf("Allocating new semaphore with ID: %d\n", sem_id);
   
-  sem = Semaphore_alloc(sem_id, sem_count);
-  if (!sem) {                                               // Check if the semaphore was allocated with no problems
-    printf("ERROR: Semaphore allocation!\n");
-    running->syscall_retvalue = DSOS_ERESOURCECREATE;
-    return;
-  }
-
-  printf("Semaphore allocation completed\n");
-
-  // Add created semaphore to global list
-  List_insert(&semaphores_list, semaphores_list.last, (ListItem*)sem);
-
   // Create the semaphore descritor
   printf("Allocating SemDescriptor\n");
 
