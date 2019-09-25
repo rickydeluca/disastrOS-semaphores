@@ -119,76 +119,86 @@ void semwait_test(void* args) {
 #define empty_sem_id  1
 #define mutex_sem_id  2
 
-int num_iter = 2    ;
+int num_iter = 2000;
 
 int shared_var = 0;
 
 void sempostTest_consumer(void* args) {
     int* sh_var = (int*) args;
     
-    int full_sem  = disastrOS_semOpen(full_sem_id, 0);
-    int empty_sem = disastrOS_semOpen(empty_sem_id, 1);
+    //int full_sem  = disastrOS_semOpen(full_sem_id, 0);
+    //int empty_sem = disastrOS_semOpen(empty_sem_id, 1);
     int mutex_sem = disastrOS_semOpen(mutex_sem_id, 1);
 
-    // Debug print to check the fd value
+    /* Debug print to check the fd value
     printf("CONSUMER:\n");
     printf("\t - full_sem_fd: %d\n\t - empty_sem_fd: %d\n\t - mutex_sem_fd: %d\n", full_sem, empty_sem, mutex_sem);
-    
+    */
+
     int i;
     for (i = 0; i < num_iter; i++) {
         // Check on entry
-        printf("CONSUMER: Just before wait\n");
-        disastrOS_semWait(full_sem);
+        //printf("CONSUMER: Just before wait\n");
+        //disastrOS_semWait(full_sem);
         disastrOS_semWait(mutex_sem);
 
         // Access from consumer to the shared variable
         (*sh_var)++;
+        printf("CONSUMER:\t Shared variable value:\t %d\n\n", shared_var);
 
-        printf("CONSUMER: Just before post\n");
+        //printf("CONSUMER: Just before post\n");
         disastrOS_semPost(mutex_sem);
-        disastrOS_semPost(empty_sem);
+        //disastrOS_semPost(empty_sem);
     }
+
+    disastrOS_exit(EXIT_SUCCESS);
 }
 
 void sempostTest_producer(void* args) {  
     int* sh_var = (int*) args;
 
-    int full_sem  = disastrOS_semOpen(full_sem_id, 0);
-    int empty_sem = disastrOS_semOpen(empty_sem_id, 1);
+    //int full_sem  = disastrOS_semOpen(full_sem_id, 0);
+    //int empty_sem = disastrOS_semOpen(empty_sem_id, 1);
     int mutex_sem = disastrOS_semOpen(mutex_sem_id, 1);
 
-    // Debug print to check the fd value
+    /* Debug print to check the fd value
     printf("PRODUCER:\n");
     printf("\t - full_sem_fd: %d\n\t - empty_sem_fd: %d\n\t - mutex_sem_fd: %d\n", full_sem, empty_sem, mutex_sem);
-    
+    */
+
     int i;
     for (i = 0; i < num_iter; i++) {
         // Check on entry
-        printf("PRODUCER: Just before wait\n");
-        disastrOS_semWait(empty_sem);
+        //printf("PRODUCER: Just before wait\n");
+        //disastrOS_semWait(empty_sem);
         disastrOS_semWait(mutex_sem);
 
         // Access from consumer to the shared buffer
         (*sh_var)--;
+        printf("PRODUCER:\t Shared variable value:\t %d\n\n", shared_var);
 
-        printf("PRODUCER: Just before post\n");
+        //printf("PRODUCER: Just before post\n");
         disastrOS_semPost(mutex_sem);
-        disastrOS_semPost(full_sem);
+        //disastrOS_semPost(full_sem);
     }
+    disastrOS_exit(EXIT_SUCCESS);
 }   
 
 void sempost_test(void* args) {
     printf ("Testing the semPost using a simple Producer Consumer model that read and write in a buffer\n");
 
     // Open the semaphores in the main process so I can close them later
-    int full_sem_fd  = disastrOS_semOpen(full_sem_id, 0);
-    int empty_sem_fd = disastrOS_semOpen(empty_sem_id, 1);
+    //int full_sem_fd  = disastrOS_semOpen(full_sem_id, 0);
+    //int empty_sem_fd = disastrOS_semOpen(empty_sem_id, 1);
     int mutex_sem_fd = disastrOS_semOpen(mutex_sem_id, 1);
 
-    // Debug print to check the fd value
+    /* Debug print to check the fd value
     printf("PARENT:\n");
-    printf("\t - full_sem_fd: %d\n\t - empty_sem_fd: %d\n\t - mutex_sem_fd: %d\n", full_sem_fd, empty_sem_fd, mutex_sem_fd);
+    printf("\t - full_sem_fd: %d\n\t - empty_sem_fd: %d\n\t - mutex_sem_fd: %d\n\n", full_sem_fd, empty_sem_fd, mutex_sem_fd);
+    */
 
+    // Initial value of the shared variable
+    printf("PARENT:\t Shared variable value:\t %d\n\n", shared_var);
     // Lanch a consumer and a producer
     disastrOS_spawn(sempostTest_consumer, &shared_var);
     disastrOS_spawn(sempostTest_producer, &shared_var);
@@ -198,12 +208,12 @@ void sempost_test(void* args) {
     disastrOS_wait(0, NULL);
 
     // Close semaphores opend previously
-    disastrOS_semClose(full_sem_fd);
-    disastrOS_semClose(empty_sem_fd);
+    //disastrOS_semClose(full_sem_fd);
+    //disastrOS_semClose(empty_sem_fd);
     disastrOS_semClose(mutex_sem_fd);
 
     printf("TEST SUCCESSFUL: semPost\n");
-    disastrOS_exit(EXIT_SUCCESS);
+    disastrOS_shutdown();
 }
 /*************************************************************************/
 
