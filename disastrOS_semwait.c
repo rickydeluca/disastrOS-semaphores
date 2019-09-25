@@ -26,8 +26,8 @@ void internal_semWait() {
   // Check the count value. If <= 0 then put the caller on waiting
   if (sem->count <= 0) {
 
-    SemDescriptorPtr* sem_desc_ptr = sem_desc->ptr;
-    List_insert( &(sem_desc->semaphore->waiting_descriptors),
+    SemDescriptorPtr* sem_desc_ptr = SemDescriptorPtr_alloc(sem_desc);
+    List_insert( &(sem->waiting_descriptors),
                   sem->waiting_descriptors.last,
                   (ListItem*) sem_desc_ptr ); 
 
