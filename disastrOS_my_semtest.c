@@ -10,6 +10,21 @@
 #define     EXIT_FAILURE        1
 #define     EXIT_SUCCESSFUL     0
 
+// Define constant used in the complete tests
+#define     FULL_SEM_ID         0
+#define     EMPTY_SEM_ID        1
+#define     MUTEX_SEM_ID        2
+
+#define     NUM_ITER            30
+#define     NUM_CHILDREN        15
+
+#define     BUFFER_SIZE         30
+
+typedef struct shared_buffer {
+    int buff[BUFFER_SIZE];
+    int buff_size = BUFFER_SIZE;
+} shared_buffer;
+
 /***************************** SEMOPEN TEST *****************************/
 void semopen_test(void* args) {
     int sem_id  = 1;
@@ -217,6 +232,105 @@ void sempost_test(void* args) {
 }
 /*************************************************************************/
 
+/************************** COMPLETE TEST ********************************/
+
+void disastrOS_semTest(void *args) {
+    int test_num = *((int*) args);
+    int i;
+
+    // Declare and fill the shared buffer
+    shared_buffer sh_buff;
+    for (i = 0; i < sh_buff.buff_size; i++) {
+        sh_buff.buff[i] = 0;
+    }
+
+    // Open the semaphores
+    int full_sem = disastrOS_semOpen(FULL_SEM_ID, 0);
+    if (full_sem < 0) {
+        printf("PARENT ERROR: disastrOS_semOpen, full_sem\n");
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    int empty_sem = disastrOS_semOpen(EMPTY_SEM_ID, BUFFER_SIZE);
+    if (empty_sem < 0) {
+        printf("PARENT ERROR: disastrOS_semOpen, empty_sem\n");
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    int mutex_sem = disastrOS_semOpen(MUTEX_SEM_ID, 1);
+    if (mutex_sem < 0) {
+        printf("PARENT ERROR: disastrOS_semOpen, mutex_sem\n");
+        disastrOS_exit(EXIT_FAILURE);
+    }
+    
+    if (test_num == 1) {            // 1 Prod - N Cons
+        printf("Spawning %d consumers...\n", NUM_CHILDREN);     // Spawn Cons
+        for (i = 0; i < NUM_CHILDREN; i++) {
+            disastrOS_spawn(disastrOS_consumer, &sh_buff);
+        }
+
+        printf("Spawning 1 producer...\n");                     // Spawn Prod
+        disastrOS_spawn(disastrOS_producer, &sh_buff);
+
+        // Wait for the children
+        for (i = 0; i < NUM_CHILDREN + 1; i++) {
+            disastrOS_wait(0, NULL);
+        }
+
+    } else if (test_num == 2) {     // N Prod - 1 Cons
+        printf("Spawning 1 consumer...\n");                     // Spawn Cons
+        disastrOS_spawn(disastrOS_consumer, &sh_buff);
+
+        printf("Spawning %d producers...\n", NUM_CHILDREN);     // Spawn Prods
+        for (i = 0; i < NUM_CHILDREN; i++) {
+            disastrOS_spawn(disastrOS_producer, &sh_buff);
+        }
+
+
+        // Wait for the children
+        for (i = 0; i < NUM_CHILDREN + 1; i++) {
+            disastrOS_wait(0, NULL);
+        }
+
+    } else (test_num == 3) {
+        printf("Spawning %d consumers...\n", NUM_CHILDREN);     // Spawn Cons
+        for (i = 0; i < NUM_CHILDREN; i++) {
+            disastrOS_spawn(disastrOS_consumer, &sh_buff);
+        }
+        
+        printf("Spawning %d producers...\n", NUM_CHILDREN);     // Spawn Prods
+        for (i = 0; i < NUM_CHILDREN; i++) {
+            disastrOS_spawn(disastrOS_producer, &sh_buff);
+        }
+
+        // Wait for the children
+        for (i = 0; i < NUM_CHILDREN * 2; i++) {
+            disastrOS_wait(0, NULL);
+        }
+    }
+
+    // Close all opened semaphores
+    if (disastrOS_semClose(full_sem) != 0) {
+        printf("PARENT ERROR: disastrOS_semClose, full_sem\n");
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    if (disastrOS_semClose(empty_sem) != 0) {
+        printf("PARENT ERROR: disastrOS_semClose, empty_sem\n");
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    if (disastrOS_semClose(mutex_sem) != 0) {
+        printf("PARENT ERROR: disastrOS_semClose, mutex_sem\n");
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    // Shutdown the system
+    printf("PARENT: Well done! Test successful!\n\n")
+    disastrOS_shutdown();
+}
+/*************************************************************************/
+
 
 int main(int argc, char** argv) {
     int test_num;
@@ -226,8 +340,8 @@ int main(int argc, char** argv) {
         logfilename = argv[1];
     }
    
-    // Single function tests
-    printf("What would you like to test?\n    1 - semOpen\n    2 - semClose\n    3 - semWait\n    4 - semPost\n");
+    // tests
+    printf("What would you like to test?\n    1 - semOpen\n    2 - semClose\n    3 - semWait\n    4 - semPost\n    5 - Complete test menu\n");
 
     scanf("%d", &test_num);
     if (test_num == 1) {
@@ -243,8 +357,27 @@ int main(int argc, char** argv) {
     } else if (test_num == 4) {
         printf("Testing semPost\n");
         disastrOS_start(sempost_test, 0, logfilename);
+    } else if (test_num == 5) {
+        printf("\nHere you can test all the different models of Producer-Consumer\n\n");
+        printf("1 - 1 Producer  and N Consumers\n2 - N Producers and 1 Consumer\n3 - N Producers and N Consumers\n\n");
+
+        int compl_test_num = 0;
+        scanf("%d", &compl_test_num);
+        if (compl_test_num == 1) {
+            printf("\nTEST NO.1: 1 Prod - N Cons\n\n");
+            disastrOS_start(disastrOS_semTest, &compl_test_num, logfilename);
+        } else if (compl_test_num == 2) {
+            printf("\nTEST NO.2: N Prod - 1 Cons\n\n");
+            disastrOS_start(disastrOS_semTest, &compl_test_num, logfilename);
+        } else if (compl_test_num == 3) {
+            printf("\nTEST NO.3: N Prod - N Cons\n\n");
+            disastrOS_start(disastrOS_semTest, &compl_test_num, logfilename);
+        } else {
+            printf("\nWrong input. Sayonara!\n\n");
+        }
+
     } else {
-        printf("Wrong input. Sayonara!\n");
+        printf("\nWrong input. Sayonara!\n\n");
     }
 
     return 0;
