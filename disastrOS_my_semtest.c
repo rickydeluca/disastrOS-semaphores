@@ -15,7 +15,7 @@
 #define     EMPTY_SEM_ID        1
 #define     MUTEX_SEM_ID        2
 
-#define     NUM_ITER            10
+#define     NUM_ITER            2
 #define     NUM_CHILDREN        10
 
 #define     BUFFER_SIZE         10
@@ -260,17 +260,17 @@ void disastrOS_consumer(void* args) {
 
     for (i = 0; i < NUM_ITER; i++) {
        
-        if (disastrOS_semWait(full_sem) != 0) {
+        if (disastrOS_semWait(full_sem) < 0) {
             printf("CONSUMER [%d] ERROR: disastrOS_semWait full_sem\n", this_pid);
             disastrOS_exit(EXIT_FAILURE);
         }
-        if (disastrOS_semWait(mutex_sem) != 0) {
+        if (disastrOS_semWait(mutex_sem) < 0) {
             printf("CONSUMER [%d] ERROR: disastrOS_semWait mutex_sem\n", this_pid);
             disastrOS_exit(EXIT_FAILURE);
         }
 
-        sh_buff->buff[i] = sh_buff->buff[i] - 1;
-        printf("Shared buffer value at i = %d\t values\t %d\n", i, sh_buff->buff[i]);
+        sh_buff->buff[this_pid%BUFFER_SIZE] = sh_buff->buff[this_pid%BUFFER_SIZE] - 1;
+        printf("CONSUMER [%d]:\t Shared buffer value at i = %d\t values\t %d\n", this_pid, this_pid%BUFFER_SIZE, sh_buff->buff[this_pid%BUFFER_SIZE]);
 
         if (disastrOS_semPost(mutex_sem) != 0) {
             printf("CONSUMER [%d] ERROR: disastrOS_semPost mutex_sem\n", this_pid);
@@ -314,17 +314,17 @@ void disastrOS_producer(void* args) {
 
     for (i = 0; i < NUM_ITER; i++) {
        
-        if (disastrOS_semWait(empty_sem) != 0) {
+        if (disastrOS_semWait(empty_sem) < 0) {
             printf("PRODUCER [%d] ERROR: disastrOS_semWait empty_sem\n", this_pid);
             disastrOS_exit(EXIT_FAILURE);
         }
-        if (disastrOS_semWait(mutex_sem) != 0) {
+        if (disastrOS_semWait(mutex_sem) < 0) {
             printf("PRODUCER [%d] ERROR: disastrOS_semWait mutex_sem\n", this_pid);
             disastrOS_exit(EXIT_FAILURE);
         }
 
-        sh_buff->buff[i] = sh_buff->buff[i] + 1;
-        printf("Shared buffer value at i = %d\t values\t %d\n", i, sh_buff->buff[i]);
+        sh_buff->buff[this_pid%BUFFER_SIZE] = sh_buff->buff[this_pid%BUFFER_SIZE] + 1;
+        printf("PRODUCER [%d]:\t Shared buffer value at i = %d\t values\t %d\n", this_pid, this_pid%BUFFER_SIZE, sh_buff->buff[this_pid%BUFFER_SIZE]);
 
         if (disastrOS_semPost(mutex_sem) != 0) {
             printf("PRODUCER [%d] ERROR: disastrOS_semPost mutex_sem\n", this_pid);
