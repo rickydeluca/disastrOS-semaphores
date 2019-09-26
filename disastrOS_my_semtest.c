@@ -15,14 +15,13 @@
 #define     EMPTY_SEM_ID        1
 #define     MUTEX_SEM_ID        2
 
-#define     NUM_ITER            30
-#define     NUM_CHILDREN        15
+#define     NUM_ITER            10
+#define     NUM_CHILDREN        10
 
-#define     BUFFER_SIZE         30
+#define     BUFFER_SIZE         10
 
 typedef struct shared_buffer {
     int buff[BUFFER_SIZE];
-    int buff_size = BUFFER_SIZE;
 } shared_buffer;
 
 /***************************** SEMOPEN TEST *****************************/
@@ -233,6 +232,113 @@ void sempost_test(void* args) {
 /*************************************************************************/
 
 /************************** COMPLETE TEST ********************************/
+void disastrOS_consumer(void* args) {
+    shared_buffer* sh_buff = (shared_buffer*) args;
+    int this_pid = running->pid;
+    int i;
+
+    // Re-open the semaphores in the childs. In semOpen if a semaphore is already opened
+    // it will not be reallocated, instead re-used. So here I'm using the same semaphores
+    // opend in the parent process.
+    int full_sem = disastrOS_semOpen(FULL_SEM_ID, 0);
+    if (full_sem < 0) {
+        printf("CONSUMER [%d] ERROR: disastrOS_semOpen, full_sem\n", this_pid);
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    int empty_sem = disastrOS_semOpen(EMPTY_SEM_ID, BUFFER_SIZE);
+    if (empty_sem < 0) {
+        printf("CONSUMER [%d] ERROR: disastrOS_semOpen, empty_sem\n", this_pid);
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    int mutex_sem = disastrOS_semOpen(MUTEX_SEM_ID, 1);
+    if (mutex_sem < 0) {
+        printf("CONSUMER [%d] ERROR: disastrOS_semOpen, mutex_sem\n", this_pid);
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    for (i = 0; i < NUM_ITER; i++) {
+       
+        if (disastrOS_semWait(full_sem) != 0) {
+            printf("CONSUMER [%d] ERROR: disastrOS_semWait full_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
+        if (disastrOS_semWait(mutex_sem) != 0) {
+            printf("CONSUMER [%d] ERROR: disastrOS_semWait mutex_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
+
+        sh_buff->buff[i] = sh_buff->buff[i] - 1;
+        printf("Shared buffer value at i = %d\t values\t %d\n", i, sh_buff->buff[i]);
+
+        if (disastrOS_semPost(mutex_sem) != 0) {
+            printf("CONSUMER [%d] ERROR: disastrOS_semPost mutex_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
+        if (disastrOS_semPost(empty_sem) != 0) {
+            printf("CONSUMER [%d] ERROR: disastrOS_semPost empty_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
+
+    }
+
+    disastrOS_exit(EXIT_SUCCESS);
+}
+
+void disastrOS_producer(void* args) {
+    shared_buffer* sh_buff = (shared_buffer*) args;
+    int this_pid = running->pid;
+    int i;
+
+    // Re-open the semaphores in the childs. In semOpen if a semaphore is already opened
+    // it will not be reallocated, instead re-used. So here I'm using the same semaphores
+    // opend in the parent process.
+    int full_sem = disastrOS_semOpen(FULL_SEM_ID, 0);
+    if (full_sem < 0) {
+        printf("PRODUCER [%d] ERROR: disastrOS_semOpen, full_sem\n", this_pid);
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    int empty_sem = disastrOS_semOpen(EMPTY_SEM_ID, BUFFER_SIZE);
+    if (empty_sem < 0) {
+        printf("PRODUCER [%d] ERROR: disastrOS_semOpen, empty_sem\n", this_pid);
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    int mutex_sem = disastrOS_semOpen(MUTEX_SEM_ID, 1);
+    if (mutex_sem < 0) {
+        printf("PRODUCER [%d] ERROR: disastrOS_semOpen, mutex_sem\n", this_pid);
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    for (i = 0; i < NUM_ITER; i++) {
+       
+        if (disastrOS_semWait(empty_sem) != 0) {
+            printf("PRODUCER [%d] ERROR: disastrOS_semWait empty_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
+        if (disastrOS_semWait(mutex_sem) != 0) {
+            printf("PRODUCER [%d] ERROR: disastrOS_semWait mutex_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
+
+        sh_buff->buff[i] = sh_buff->buff[i] + 1;
+        printf("Shared buffer value at i = %d\t values\t %d\n", i, sh_buff->buff[i]);
+
+        if (disastrOS_semPost(mutex_sem) != 0) {
+            printf("PRODUCER [%d] ERROR: disastrOS_semPost mutex_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
+        if (disastrOS_semPost(full_sem) != 0) {
+            printf("PRODUECR [%d] ERROR: disastrOS_semPost full_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
+
+    }
+
+    disastrOS_exit(EXIT_SUCCESS);
+}
 
 void disastrOS_semTest(void *args) {
     int test_num = *((int*) args);
@@ -240,8 +346,13 @@ void disastrOS_semTest(void *args) {
 
     // Declare and fill the shared buffer
     shared_buffer sh_buff;
-    for (i = 0; i < sh_buff.buff_size; i++) {
+    for (i = 0; i < BUFFER_SIZE; i++) {
         sh_buff.buff[i] = 0;
+    }
+
+    int original_buff[BUFFER_SIZE];
+    for (i = 0; i < BUFFER_SIZE; i++) {
+        original_buff[i] = sh_buff.buff[i];
     }
 
     // Open the semaphores
@@ -277,6 +388,20 @@ void disastrOS_semTest(void *args) {
             disastrOS_wait(0, NULL);
         }
 
+        printf("Buffer:\n");
+        for (i = 0; i < BUFFER_SIZE; i++) {
+            printf("%d ", sh_buff.buff[i]);
+        }
+        
+        printf("\n\n");
+        printf("Solution:\n");
+        for (i = 0; i < BUFFER_SIZE; i++) {
+            original_buff[i] += -((NUM_CHILDREN - 1) * NUM_ITER);
+            printf("%d ", original_buff[i]);
+        }
+
+        printf("\n\n");
+
     } else if (test_num == 2) {     // N Prod - 1 Cons
         printf("Spawning 1 consumer...\n");                     // Spawn Cons
         disastrOS_spawn(disastrOS_consumer, &sh_buff);
@@ -292,7 +417,21 @@ void disastrOS_semTest(void *args) {
             disastrOS_wait(0, NULL);
         }
 
-    } else (test_num == 3) {
+        printf("Buffer:\n");
+        for (i = 0; i < BUFFER_SIZE; i++) {
+            printf("%d ", sh_buff.buff[i]);
+        }
+        
+        printf("\n\n");
+        printf("Solution:\n");
+        for (i = 0; i < BUFFER_SIZE; i++) {
+            original_buff[i] += (NUM_CHILDREN - 1) * NUM_ITER;
+            printf("%d ", original_buff[i]);
+        }
+
+        printf("\n\n");
+
+    } else {
         printf("Spawning %d consumers...\n", NUM_CHILDREN);     // Spawn Cons
         for (i = 0; i < NUM_CHILDREN; i++) {
             disastrOS_spawn(disastrOS_consumer, &sh_buff);
@@ -307,6 +446,19 @@ void disastrOS_semTest(void *args) {
         for (i = 0; i < NUM_CHILDREN * 2; i++) {
             disastrOS_wait(0, NULL);
         }
+
+        printf("Buffer:\n");
+        for (i = 0; i < BUFFER_SIZE; i++) {
+            printf("%d ", sh_buff.buff[i]);
+        }
+        
+        printf("\n\n");
+        printf("Solution:\n");
+        for (i = 0; i < BUFFER_SIZE; i++) {
+            printf("%d ", original_buff[i]);
+        }
+
+        printf("\n\n");
     }
 
     // Close all opened semaphores
@@ -326,7 +478,7 @@ void disastrOS_semTest(void *args) {
     }
 
     // Shutdown the system
-    printf("PARENT: Well done! Test successful!\n\n")
+    printf("PARENT: Well done! Test successful!\n\n");
     disastrOS_shutdown();
 }
 /*************************************************************************/
