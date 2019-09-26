@@ -14,7 +14,7 @@ void internal_semClose(){
 
   int sem_fd = running->syscall_args[0];
   
-  printf("Obtaining the semaphore descriptor... ");
+  disastrOS_debug("Obtaining the semaphore descriptor... ");
 
   // Get the SemDescriptor of the semaphore to close from SemDescrpitorList of the process
   SemDescriptor* sem_desc =  SemDescriptorList_byFd(&running->sem_descriptors, sem_fd);
@@ -24,9 +24,9 @@ void internal_semClose(){
     return;
   }
 
-  printf("Done!\n");
+  disastrOS_debug("Done!\n");
 
-  printf("Obtaining the semaphore... ");
+  disastrOS_debug("Obtaining the semaphore... ");
 
   // Obtain the semaphore from its file descriptor
   Semaphore* sem = sem_desc->semaphore;
@@ -36,9 +36,9 @@ void internal_semClose(){
     return;
   }
 
-  printf("Done!\n");
+  disastrOS_debug("Done!\n");
 
-  printf("Obtainign pointer to SemDescriptor... ");
+  disastrOS_debug("Obtainign pointer to SemDescriptor... ");
 
   // Obatin pointer to SemDescriptor
   SemDescriptorPtr* sem_desc_ptr = sem_desc->ptr;
@@ -48,7 +48,7 @@ void internal_semClose(){
     return;
   }
 
-  printf("Done!\n");
+  disastrOS_debug("Done!\n");
 
   /*  N.B. The return value of functions "*_free" is a type called PoolAllocatorResult
       and defined in "pool_allcator.h". It values:
@@ -61,7 +61,7 @@ void internal_semClose(){
 
   int ret = 0;  // Return value of functions "*_free"
 
-  printf("Removing SemDescriptor... ");
+  disastrOS_debug("Removing SemDescriptor... ");
 
   // Remove SemDescrpitor from the list of the process
   sem_desc = (SemDescriptor*) List_detach( &(running->sem_descriptors), (ListItem*) sem_desc);
@@ -72,9 +72,9 @@ void internal_semClose(){
     return;
   }
 
-  printf("Done!\n");
+  disastrOS_debug("Done!\n");
 
-  printf("Removing SemDescriptorPtr... ");
+  disastrOS_debug("Removing SemDescriptorPtr... ");
 
   // Remove SemDescriptorPtr from the list of the process
   sem_desc_ptr = (SemDescriptorPtr*) List_detach( &(sem->descriptors), (ListItem*) sem_desc_ptr);
@@ -85,9 +85,9 @@ void internal_semClose(){
     return;
   }
 
-  printf("Done!\n");
+  disastrOS_debug("Done!\n");
 
-  printf("Unlinking the semaphore... ");
+  disastrOS_debug("Unlinking the semaphore... ");
 
   // Finally unlink the semaphore
   if (sem->descriptors.size == 0) {
@@ -100,8 +100,8 @@ void internal_semClose(){
     }
   }
 
-  printf("Done!\n");
-  printf("\n \n");
+  disastrOS_debug("Done!\n");
+  disastrOS_debug("\n \n");
 
   // On success return 0
   running->syscall_retvalue = 0;

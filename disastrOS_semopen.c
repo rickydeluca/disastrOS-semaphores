@@ -14,8 +14,8 @@ void internal_semOpen() {
   int sem_id = running->syscall_args[0];
   int sem_count = running->syscall_args[1];
 
-  printf("Try to open sempahore with ID: %d ", sem_id);
-  printf("and count: %d\n", sem_count);
+  disastrOS_debug("Try to open sempahore with ID: %d ", sem_id);
+  disastrOS_debug("and count: %d\n", sem_count);
 
   // Check if there is already an opened semaphore with the same ID
   Semaphore* sem = SemaphoreList_byId(&semaphores_list, sem_id);
@@ -23,11 +23,11 @@ void internal_semOpen() {
   // If there is already an opened semaphore with this ID I don'n need to allocate a new one.
   // In this way multiple process can use the same semaphore
   if (!sem) {
-      printf("There isn't already an opened semaphore with the ID: %d\n. So I allocate it", sem_id);
+      disastrOS_debug("There isn't already an opened semaphore with the ID: %d\n. So I allocate it", sem_id);
       // running->syscall_retvalue = DSOS_ERESOURCEOPEN;    
       // return;
       // Allocate new semaphore and add it to the global list
-      printf("Allocating new semaphore with ID: %d\n", sem_id);
+      disastrOS_debug("Allocating new semaphore with ID: %d\n", sem_id);
       
       sem = Semaphore_alloc(sem_id, sem_count);
       if (!sem) {                                               // Check if the semaphore was allocated with no problems
@@ -36,7 +36,7 @@ void internal_semOpen() {
         return;
       }
 
-      printf("Semaphore allocation completed\n");
+      disastrOS_debug("Semaphore allocation completed\n");
 
       // Add created semaphore to global list
       List_insert(&semaphores_list, semaphores_list.last, (ListItem*)sem);
@@ -44,7 +44,7 @@ void internal_semOpen() {
 
   
   // Create the semaphore descritor
-  printf("Allocating SemDescriptor\n");
+  disastrOS_debug("Allocating SemDescriptor\n");
 
   SemDescriptor* sem_fd = SemDescriptor_alloc(running->last_sem_fd, sem, running);
   if (!sem_fd) {
@@ -53,7 +53,7 @@ void internal_semOpen() {
      return;
   }
 
-  printf("SemDescriptor allocation completed\n");
+  disastrOS_debug("SemDescriptor allocation completed\n");
 
   // Increment last_sem_fd number so the next semaphore can take a different file descriptor.
   // It also represents the number of opened semaphores for this process
@@ -62,7 +62,7 @@ void internal_semOpen() {
   // Insert the new descriptor into the process descriptor list
   List_insert(&running->sem_descriptors, running->sem_descriptors.last, (ListItem*) sem_fd);
 
-  printf("Allocating SemDescriptorPtr\n");
+  disastrOS_debug("Allocating SemDescriptorPtr\n");
 
   // Create the pointer to the file descriptor
   SemDescriptorPtr* sem_fd_ptr = SemDescriptorPtr_alloc(sem_fd);
@@ -72,16 +72,16 @@ void internal_semOpen() {
       return;
   }
 
-  printf("SemDescriptorPtr allocation completed!\n");
+  disastrOS_debug("SemDescriptorPtr allocation completed!\n");
 
   // Add the descriptor to the semaphore created
-  printf("Adding descriptor to the semaphore struct... ");
+  disastrOS_debug("Adding descriptor to the semaphore struct... ");
 
   sem_fd->ptr = sem_fd_ptr;
   List_insert(&sem->descriptors, sem->descriptors.last, (ListItem*) sem_fd_ptr);
 
-  printf("Done!\n");
-  printf("\n \n");
+  disastrOS_debug("Done!\n");
+  disastrOS_debug("\n \n");
 
   // Return the sem descriptor to the process
   running->syscall_retvalue = sem_fd->fd;
