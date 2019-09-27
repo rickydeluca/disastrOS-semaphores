@@ -15,14 +15,16 @@
 #define     EMPTY_SEM_ID        1
 #define     MUTEX_SEM_ID        2
 
-#define     NUM_ITER            1
+#define     NUM_ITER            10
 #define     NUM_CHILDREN        10
 
 #define     BUFFER_SIZE         10
 
-typedef struct shared_buffer {
+
+typedef struct shared_data {
     int buff[BUFFER_SIZE];
-} shared_buffer;
+} shared_data;
+
 
 /***************************** SEMOPEN TEST *****************************/
 void semopen_test(void* args) {
@@ -233,7 +235,8 @@ void sempost_test(void* args) {
 
 /************************** COMPLETE TEST ********************************/
 void disastrOS_consumer(void* args) {
-    shared_buffer* sh_buff = (shared_buffer*) args;
+    // shared_buffer* sh_buff = (shared_buffer*) args;
+    int* buff = (int*) args;
     int this_pid = running->pid;
     int i, j;   // Iterators for the CS
 
@@ -269,8 +272,8 @@ void disastrOS_consumer(void* args) {
                 disastrOS_exit(EXIT_FAILURE);
             }
 
-            sh_buff->buff[j]--;
-            printf("CONSUMER [%d]:\t Shared buffer at j = %d\t values\t %d\n", this_pid, j, sh_buff->buff[j]);
+            buff[j]--;
+            printf("CONSUMER [%d]:\t Shared buffer at j = %d\t values\t %d\n", this_pid, j, buff[j]);
 
             //sh_buff->buff[BUFFER_SIZE%i]--;
             //printf("CONSUMER [%d]:\t Shared buffer value at i = %d\t values\t %d\n", this_pid, BUFFER_SIZE%i, sh_buff->buff[BUFFER_SIZE%i]);
@@ -291,7 +294,8 @@ void disastrOS_consumer(void* args) {
 }
 
 void disastrOS_producer(void* args) {
-    shared_buffer* sh_buff = (shared_buffer*) args;
+    // shared_buffer* sh_buff = (shared_buffer*) args;
+    int* buff = (int*) args;
     int this_pid = running->pid;
     int i, j;   // Iterators for the CS
 
@@ -328,8 +332,8 @@ void disastrOS_producer(void* args) {
                 disastrOS_exit(EXIT_FAILURE);
             }
 
-            sh_buff->buff[j]++;
-            printf("PRODUCER [%d]:\t Shared buffer at j = %d\t values\t %d\n", this_pid, j, sh_buff->buff[j]);
+            buff[j]++;
+            printf("PRODUCER [%d]:\t Shared buffer at j = %d\t values\t %d\n", this_pid, j, buff[j]);
 
             //sh_buff->buff[BUFFER_SIZE%i]++;
             //printf("PRODUCER [%d]:\t Shared buffer value at i = %d\t values\t %d\n", this_pid, BUFFER_SIZE%i, sh_buff->buff[BUFFER_SIZE%i]);
@@ -352,7 +356,7 @@ void disastrOS_semTest(void *args) {
     int test_num = *((int*) args);
     int i;
 
-    // Declare and fill the shared buffer
+    /* Declare and fill the shared buffer
     shared_buffer sh_buff;
     for (i = 0; i < BUFFER_SIZE; i++) {
         sh_buff.buff[i] = 0;
@@ -361,6 +365,18 @@ void disastrOS_semTest(void *args) {
     int original_buff[BUFFER_SIZE];
     for (i = 0; i < BUFFER_SIZE; i++) {
         original_buff[i] = sh_buff.buff[i];
+    }
+    */
+
+    // Buffer to pass to the childs
+    int buff_for_childs[BUFFER_SIZE];
+    for (i = 0; i < BUFFER_SIZE; i++) {
+        buff_for_childs[i] = 0;
+    }
+
+    int solution_buff[BUFFER_SIZE];
+    for (i = 0; i < BUFFER_SIZE; i++) {
+        solution_buff[i] = 0;
     }
 
     // Open the semaphores
@@ -385,38 +401,44 @@ void disastrOS_semTest(void *args) {
     if (test_num == 1) {            // 1 Prod - N Cons
         printf("Spawning %d consumers...\n", NUM_CHILDREN);     // Spawn Cons
         for (i = 0; i < NUM_CHILDREN; i++) {
-            disastrOS_spawn(disastrOS_consumer, &sh_buff);
+            disastrOS_spawn(disastrOS_consumer, &buff_for_childs);
         }
 
         printf("Spawning 1 producer...\n");                     // Spawn Prod
-        disastrOS_spawn(disastrOS_producer, &sh_buff);
+        disastrOS_spawn(disastrOS_producer, &buff_for_childs);
 
         // Wait for the children
         for (i = 0; i < NUM_CHILDREN + 1; i++) {
             disastrOS_wait(0, NULL);
         }
 
+        // Print solution
         printf("Buffer:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
-            printf("%d ", sh_buff.buff[i]);
+            //printf("%d ", sh_buff.buff[i]);
+            printf("%d ", buff_for_childs[i]);
         }
         
         printf("\n\n");
         printf("Solution:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
+            /*
             original_buff[i] += -((NUM_CHILDREN - 1) * NUM_ITER);
             printf("%d ", original_buff[i]);
+            */
+            solution_buff[i] += -((NUM_CHILDREN - 1) * NUM_ITER); 
+            printf("%d ", solution_buff[i]);
         }
 
         printf("\n\n");
 
     } else if (test_num == 2) {     // N Prod - 1 Cons
         printf("Spawning 1 consumer...\n");                     // Spawn Cons
-        disastrOS_spawn(disastrOS_consumer, &sh_buff);
+        disastrOS_spawn(disastrOS_consumer, &buff_for_childs);
 
         printf("Spawning %d producers...\n", NUM_CHILDREN);     // Spawn Prods
         for (i = 0; i < NUM_CHILDREN; i++) {
-            disastrOS_spawn(disastrOS_producer, &sh_buff);
+            disastrOS_spawn(disastrOS_producer, &buff_for_childs);
         }
 
 
@@ -425,16 +447,21 @@ void disastrOS_semTest(void *args) {
             disastrOS_wait(0, NULL);
         }
 
+        // Print solution
         printf("Buffer:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
-            printf("%d ", sh_buff.buff[i]);
+            printf("%d ", buff_for_childs[i]);
         }
         
         printf("\n\n");
         printf("Solution:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
+            /*
             original_buff[i] += (NUM_CHILDREN - 1) * NUM_ITER;
             printf("%d ", original_buff[i]);
+            */
+            solution_buff[i] += -((NUM_CHILDREN - 1) * NUM_ITER); 
+            printf("%d ", solution_buff[i]);
         }
 
         printf("\n\n");
@@ -454,8 +481,8 @@ void disastrOS_semTest(void *args) {
 
         printf("Spawning %d producers and %d consumers...\n", NUM_CHILDREN, NUM_CHILDREN);     // Spawn Prods
         for (i = 0; i < NUM_CHILDREN; i++) {
-            disastrOS_spawn(disastrOS_producer, &sh_buff);  // Pid Odd
-            disastrOS_spawn(disastrOS_consumer, &sh_buff);  // Pidd Even
+            disastrOS_spawn(disastrOS_producer, &buff_for_childs);  // Pid Odd
+            disastrOS_spawn(disastrOS_consumer, &buff_for_childs);  // Pid Even
         }
 
         // Wait for the children
@@ -463,15 +490,17 @@ void disastrOS_semTest(void *args) {
             disastrOS_wait(0, NULL);
         }
 
+        // Print solution 
         printf("Buffer:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
-            printf("%d ", sh_buff.buff[i]);
+            printf("%d ", buff_for_childs[i]);
         }
         
         printf("\n\n");
         printf("Solution:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
-            printf("%d ", original_buff[i]);
+            //printf("%d ", original_buff[i]);
+            printf("%d ", solution_buff[i]);
         }
 
         printf("\n\n");
