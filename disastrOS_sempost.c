@@ -27,24 +27,24 @@ void internal_semPost(){
     return;
   }
 
+  SemDescriptorPtr* first_sem_wait_desc_ptr;
+  
+  sem->count++;
   // If the semaphore count is <= 0 and some other thread is waiting, then resume thread
   if (sem->count <= 0 && sem->waiting_descriptors.first != NULL) {
     
     // Get the descriptor of the first process in the list of waiting descriptors
-    SemDescriptorPtr* first_sem_wait_desc_ptr = (SemDescriptorPtr*) List_detach(&(sem->waiting_descriptors),
-                                                                                (ListItem*) (sem->waiting_descriptors).first);
+    first_sem_wait_desc_ptr = (SemDescriptorPtr*) List_detach(&(sem->waiting_descriptors),
+                                                              (ListItem*) (sem->waiting_descriptors).first);
+    
+    // Get the pcb of the next process that will run
+    PCB* next_pcb = first_sem_wait_desc_ptr->descriptor->pcb;
 
-    // Get the pcb of the process with the waiting descriptor just found
-    PCB* first_pcb = first_sem_wait_desc_ptr->descriptor->pcb;
-
-    // Move the pcb from the waiting list to the ready list
-    List_detach(&waiting_list, (ListItem*) first_pcb);
-    List_insert(&ready_list, (ListItem*) ready_list.last, (ListItem*) first_pcb);
-
-    // Put the status of PCB on ready
-    first_pcb->status = Ready;
+    // Set its status on Ready and insert him in the queue of ready process
+    next_pcb->status=Ready;
+    List_insert(&ready_list, ready_list.last, (ListItem*) next_pcb);
   }
 
-  (sem->count)++;
-  running->syscall_retvalue = 0;  // Return 0 on success  
+  running->syscall_retvalue = 0;  // Return 0 on success 
+  return;
 }
