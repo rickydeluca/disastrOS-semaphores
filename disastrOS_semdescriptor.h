@@ -12,6 +12,8 @@ typedef struct SemDescriptor{
   Semaphore* semaphore;
   int fd;
   struct SemDescriptorPtr* ptr; // pointer to the entry in the resource list
+  struct SemDescriptorPtr* wait_ptr;  // With this pointer I can avoid to aloccate
+                                      // a SemDescriptorPtr in every semPost and semWait
 } SemDescriptor;
 
 typedef struct SemDescriptorPtr{
