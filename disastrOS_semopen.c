@@ -7,21 +7,6 @@
 #include "disastrOS_semdescriptor.h"
 #include "disastrOS_globals.h"
 #include "disastrOS_constants.h"
-  
-SemDescriptor* search_sem(ListHead* l, int key){
-    ListItem* aux = l->first;
-    while(aux){
-      SemDescriptor* d = (SemDescriptor*)aux;
-	    
-      if(key == d->semaphore->id) {
-        return d;
-      }
-
-      aux=aux->next;
-    }
-
-    return NULL;
-}
 
 void internal_semOpen() {
   
@@ -35,18 +20,6 @@ void internal_semOpen() {
   // Check if there is already an opened semaphore with the same ID.
   // If YES then I will reuse it. In this way different process can use
   // the same semaphore.
-  ListHead sem_list = running->sem_descriptors;
-  SemDescriptor* found_sem_desc = search_sem(&sem_list, sem_id);
-
-  if (found_sem_desc) {
-    disastrOS_debug("Found an opened semaphore with the same id. Reuising it!\n");
-    
-    running->syscall_retvalue = found_sem_desc->fd;
-    return;
-  }
-
-
-  // Check if there is already an opened semaphore with the same ID
   Semaphore* sem = SemaphoreList_byId(&semaphores_list, sem_id);
 
   // If not I have to allocate it
@@ -99,6 +72,17 @@ void internal_semOpen() {
 
   // Add the pointer in the filed of the descriptos
   sem_desc->ptr = sem_desc_ptr;
+
+  // Create a pointer exclusively for when i need to put se process in wait,
+  // otherwise there will be a lot of segmentation fault errors.
+  SemDescriptorPtr * wait_ptr = SemDescriptorPtr_alloc(sem_desc);  
+  if(!wait_ptr) {
+      printf("ERROR: wait_ptr allocation!\n");
+      running->syscall_retvalue = DSOS_ERESOURCECREATE;
+      return;
+  }
+
+  sem_desc->wait_ptr = wait_ptr;
 
   // Inert the descriptor in process' descriptors list
   List_insert(&running->sem_descriptors, running->sem_descriptors.last, (ListItem*) sem_desc);
