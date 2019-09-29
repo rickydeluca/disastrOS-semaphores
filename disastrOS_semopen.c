@@ -7,6 +7,21 @@
 #include "disastrOS_semdescriptor.h"
 #include "disastrOS_globals.h"
 #include "disastrOS_constants.h"
+  
+SemDescriptor* search_sem(ListHead* l, int key){
+    ListItem* aux = l->first;
+    while(aux){
+      SemDescriptor* d = (SemDescriptor*)aux;
+	    
+      if(key == d->semaphore->id) {
+        return d;
+      }
+
+      aux=aux->next;
+    }
+
+    return NULL;
+}
 
 void internal_semOpen() {
   
@@ -17,16 +32,27 @@ void internal_semOpen() {
   disastrOS_debug("Try to open sempahore with ID: %d ", sem_id);
   disastrOS_debug("and count: %d\n", sem_count);
 
+  // Check if there is already an opened semaphore with the same ID.
+  // If YES then I will reuse it. In this way different process can use
+  // the same semaphore.
+  ListHead sem_list = running->sem_descriptors;
+  SemDescriptor* found_sem_desc = search_sem(&sem_list, sem_id);
+
+  if (found_sem_desc) {
+    disastrOS_debug("Found an opened semaphore with the same id. Reuising it!\n");
+    
+    running->syscall_retvalue = found_sem_desc->fd;
+    return;
+  }
+
+
   // Check if there is already an opened semaphore with the same ID
   Semaphore* sem = SemaphoreList_byId(&semaphores_list, sem_id);
 
-  // If there is already an opened semaphore with this ID I don'n need to allocate a new one.
-  // In this way multiple process can use the same semaphore
+  // If not I have to allocate it
   if (!sem) {
       disastrOS_debug("There isn't already an opened semaphore with the ID: %d\n. So I allocate it", sem_id);
-      // running->syscall_retvalue = DSOS_ERESOURCEOPEN;    
-      // return;
-      // Allocate new semaphore and add it to the global list
+      // Allocate new semaphore
       disastrOS_debug("Allocating new semaphore with ID: %d\n", sem_id);
       
       sem = Semaphore_alloc(sem_id, sem_count);
@@ -46,8 +72,8 @@ void internal_semOpen() {
   // Create the semaphore descritor
   disastrOS_debug("Allocating SemDescriptor\n");
 
-  SemDescriptor* sem_fd = SemDescriptor_alloc(running->last_sem_fd, sem, running);
-  if (!sem_fd) {
+  SemDescriptor* sem_desc = SemDescriptor_alloc(running->last_sem_fd, sem, running);
+  if (!sem_desc) {
      printf("ERROR: SemDescriptor allocation!\n");
      running->syscall_retvalue = DSOS_ERESOURCECREATE;
      return;
@@ -59,14 +85,11 @@ void internal_semOpen() {
   // It also represents the number of opened semaphores for this process
   running->last_sem_fd++;
 
-  // Insert the new descriptor into the process descriptor list
-  List_insert(&running->sem_descriptors, running->sem_descriptors.last, (ListItem*) sem_fd);
-
   disastrOS_debug("Allocating SemDescriptorPtr\n");
 
   // Create the pointer to the file descriptor
-  SemDescriptorPtr* sem_fd_ptr = SemDescriptorPtr_alloc(sem_fd);
-  if(!sem_fd_ptr) {
+  SemDescriptorPtr* sem_desc_ptr = SemDescriptorPtr_alloc(sem_desc);
+  if(!sem_desc_ptr) {
       printf("ERROR: SemDescriptorPtr allocation!\n");
       running->syscall_retvalue = DSOS_ERESOURCECREATE;
       return;
@@ -74,15 +97,18 @@ void internal_semOpen() {
 
   disastrOS_debug("SemDescriptorPtr allocation completed!\n");
 
-  // Add the descriptor to the semaphore created
-  disastrOS_debug("Adding descriptor to the semaphore struct... ");
+  // Add the pointer in the filed of the descriptos
+  sem_desc->ptr = sem_desc_ptr;
 
-  sem_fd->ptr = sem_fd_ptr;
-  List_insert(&sem->descriptors, sem->descriptors.last, (ListItem*) sem_fd_ptr);
+  // Inert the descriptor in process' descriptors list
+  List_insert(&running->sem_descriptors, running->sem_descriptors.last, (ListItem*) sem_desc);
+
+  // Inserte the descriptor pointer in the semaphore's descriptors list
+  List_insert(&sem->descriptors, sem->descriptors.last, (ListItem*) sem_desc_ptr);
 
   disastrOS_debug("Done!\n");
   disastrOS_debug("\n \n");
 
   // Return the sem descriptor to the process
-  running->syscall_retvalue = sem_fd->fd;
+  running->syscall_retvalue = sem_desc->fd;
 }
