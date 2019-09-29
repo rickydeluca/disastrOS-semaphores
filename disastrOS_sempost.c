@@ -40,9 +40,12 @@ void internal_semPost(){
     // Get the pcb of the next process that will run
     PCB* next_pcb = first_sem_wait_desc_ptr->descriptor->pcb;
 
-    // Set its status on Ready and insert him in the queue of ready process
-    next_pcb->status=Ready;
+    // Removing him from waiting list and insert in ready list
+    List_detach(&waiting_list, (ListItem*) next_pcb);
     List_insert(&ready_list, ready_list.last, (ListItem*) next_pcb);
+
+    // Set its status on Ready
+    next_pcb->status=Ready; 
   }
 
   running->syscall_retvalue = 0;  // Return 0 on success 
