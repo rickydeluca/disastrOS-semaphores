@@ -13,16 +13,25 @@
 // Define constant used in the complete tests
 #define     FULL_SEM_ID         0
 #define     EMPTY_SEM_ID        1
-#define     MUTEX_SEM_ID        2
-
-#define     NUM_ITER            10
-#define     NUM_CHILDREN        10
+#define     MUTEX_CONS_ID       2
+#define     MUTEX_PROD_ID       3
 
 #define     BUFFER_SIZE         10
+#define     NUM_CONSUMERS       5
+#define     NUM_PRODUCERS       5
+
+#define     NUM_OPERATIONS      25
+#define     OPS_PER_CONSUMER    (NUM_OPERATIONS/NUM_CONSUMERS)
+#define     OPS_PER_PRODUCER    (NUM_OPERATIONS/NUM_PRODUCERS)
 
 
 typedef struct shared_data {
     int buff[BUFFER_SIZE];
+    int prod_idx;
+    int cons_idx;
+    int test_num;
+    int num_ops_cons;
+    int num_ops_prod;
 } shared_data;
 
 
@@ -141,21 +150,17 @@ int shared_var = 0;
 
 void sempostTest_consumer(void* args) {
     int* sh_var = (int*) args;
-    
-    //int full_sem  = disastrOS_semOpen(full_sem_id, 0);
-    //int empty_sem = disastrOS_semOpen(empty_sem_id, 1);
     int mutex_sem = disastrOS_semOpen(mutex_sem_id, 1);
 
     /* Debug print to check the fd value
     printf("CONSUMER:\n");
-    printf("\t - full_sem_fd: %d\n\t - empty_sem_fd: %d\n\t - mutex_sem_fd: %d\n", full_sem, empty_sem, mutex_sem);
+    printf("\t - mutex_sem_fd: %d\n", mutex_sem);
     */
 
     int i;
     for (i = 0; i < num_iter; i++) {
         // Check on entry
         //printf("CONSUMER: Just before wait\n");
-        //disastrOS_semWait(full_sem);
         disastrOS_semWait(mutex_sem);
 
         // Access from consumer to the shared variable
@@ -164,7 +169,6 @@ void sempostTest_consumer(void* args) {
 
         //printf("CONSUMER: Just before post\n");
         disastrOS_semPost(mutex_sem);
-        //disastrOS_semPost(empty_sem);
     }
 
     disastrOS_exit(EXIT_SUCCESS);
@@ -172,21 +176,17 @@ void sempostTest_consumer(void* args) {
 
 void sempostTest_producer(void* args) {  
     int* sh_var = (int*) args;
-
-    //int full_sem  = disastrOS_semOpen(full_sem_id, 0);
-    //int empty_sem = disastrOS_semOpen(empty_sem_id, 1);
     int mutex_sem = disastrOS_semOpen(mutex_sem_id, 1);
 
     /* Debug print to check the fd value
     printf("PRODUCER:\n");
-    printf("\t - full_sem_fd: %d\n\t - empty_sem_fd: %d\n\t - mutex_sem_fd: %d\n", full_sem, empty_sem, mutex_sem);
+    printf("\t - mutex_sem_fd: %d\n", mutex_sem);
     */
 
     int i;
     for (i = 0; i < num_iter; i++) {
         // Check on entry
         //printf("PRODUCER: Just before wait\n");
-        //disastrOS_semWait(empty_sem);
         disastrOS_semWait(mutex_sem);
 
         // Access from consumer to the shared buffer
@@ -195,22 +195,20 @@ void sempostTest_producer(void* args) {
 
         //printf("PRODUCER: Just before post\n");
         disastrOS_semPost(mutex_sem);
-        //disastrOS_semPost(full_sem);
     }
+
     disastrOS_exit(EXIT_SUCCESS);
 }   
 
 void sempost_test(void* args) {
     printf ("Testing the semPost using a simple Producer Consumer model that read and write in a buffer\n");
 
-    // Open the semaphores in the main process so I can close them later
-    //int full_sem_fd  = disastrOS_semOpen(full_sem_id, 0);
-    //int empty_sem_fd = disastrOS_semOpen(empty_sem_id, 1);
+    // Open the semaphore in the main process so I can close them later
     int mutex_sem_fd = disastrOS_semOpen(mutex_sem_id, 1);
 
     /* Debug print to check the fd value
     printf("PARENT:\n");
-    printf("\t - full_sem_fd: %d\n\t - empty_sem_fd: %d\n\t - mutex_sem_fd: %d\n\n", full_sem_fd, empty_sem_fd, mutex_sem_fd);
+    printf("\t - mutex_sem_fd: %d\n\n", mutex_sem_fd);
     */
 
     // Initial value of the shared variable
@@ -224,8 +222,6 @@ void sempost_test(void* args) {
     disastrOS_wait(0, NULL);
 
     // Close semaphores opend previously
-    //disastrOS_semClose(full_sem_fd);
-    //disastrOS_semClose(empty_sem_fd);
     disastrOS_semClose(mutex_sem_fd);
 
     printf("TEST SUCCESSFUL: semPost\n");
@@ -235,10 +231,10 @@ void sempost_test(void* args) {
 
 /************************** COMPLETE TEST ********************************/
 void disastrOS_consumer(void* args) {
-    // shared_buffer* sh_buff = (shared_buffer*) args;
-    int* buff = (int*) args;
+    shared_data* sd = (shared_data*) args;
+    int test_num = sd->test_num;
     int this_pid = running->pid;
-    int i, j;   // Iterators for the CS
+    int idx;    // Index for consumer operation
 
     // Re-open the semaphores in the childs. In semOpen if a semaphore is already opened
     // it will not be reallocated, instead re-used. So here I'm using the same semaphores
@@ -255,49 +251,69 @@ void disastrOS_consumer(void* args) {
         disastrOS_exit(EXIT_FAILURE);
     }
 
-    int mutex_sem = disastrOS_semOpen(MUTEX_SEM_ID, 1);
-    if (mutex_sem < 0) {
-        printf("CONSUMER [%d] ERROR: disastrOS_semOpen, mutex_sem\n", this_pid);
-        disastrOS_exit(EXIT_FAILURE);
+    int mutex_cons;
+    if (test_num == 1 || test_num == 3) {   // NUM CONSUMERS > 1
+        mutex_cons = disastrOS_semOpen(MUTEX_CONS_ID, 1);
+        if (mutex_cons < 0) {
+            printf("CONSUMER [%d] ERROR: disastrOS_semOpen, mutex_cons\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
     }
 
-    for (i = 0; i < NUM_ITER; i++) {
-       for (j = 0; j < BUFFER_SIZE; j++) {
-            if (disastrOS_semWait(full_sem) < 0) {
-                printf("CONSUMER [%d] ERROR: disastrOS_semWait full_sem\n", this_pid);
+    while (sd->num_ops_cons > 0) {
+
+        if (disastrOS_semWait(full_sem) < 0) {
+            printf("CONSUMER [%d] ERROR: disastrOS_semWait, full_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
+
+        // Wait on Mutex only if NUM CONS > 1
+        if (test_num == 1 || test_num == 3) {
+            if (disastrOS_semWait(mutex_cons) < 0) {
+                printf("CONSUMER [%d] ERROR: disastrOS_semWait, mutex_cons\n", this_pid);
                 disastrOS_exit(EXIT_FAILURE);
             }
-            if (disastrOS_semWait(mutex_sem) < 0) {
-                printf("CONSUMER [%d] ERROR: disastrOS_semWait mutex_sem\n", this_pid);
+        }
+        
+        printf("CONSUMER [%d] in CS\n", this_pid);
+
+        idx = sd->cons_idx;
+        sd->buff[idx]--;
+
+        printf("CONSUMER [%d]: Buffer[%d]\t =\t %d\n", this_pid, idx%BUFFER_SIZE, sd->buff[idx%BUFFER_SIZE]);
+
+        idx++;
+        sd->cons_idx = idx % BUFFER_SIZE;
+
+        // Same on post
+        if (test_num == 1 || test_num == 3) {
+            if (disastrOS_semPost(mutex_cons) != 0) {
+                printf("CONSUMER [%d] ERROR: disastrOS_semPost mutex_cons\n", this_pid);
                 disastrOS_exit(EXIT_FAILURE);
             }
+        }
 
-            buff[j]--;
-            printf("CONSUMER [%d]:\t Shared buffer at j = %d\t values\t %d\n", this_pid, j, buff[j]);
+        // Decrease number of total ops for consumer
+        sd->num_ops_cons--;
 
-            //sh_buff->buff[BUFFER_SIZE%i]--;
-            //printf("CONSUMER [%d]:\t Shared buffer value at i = %d\t values\t %d\n", this_pid, BUFFER_SIZE%i, sh_buff->buff[BUFFER_SIZE%i]);
+        if (disastrOS_semPost(empty_sem) != 0) {
+            printf("CONSUMER [%d] ERROR: disastrOS_semPost empty_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
 
-            if (disastrOS_semPost(mutex_sem) != 0) {
-                printf("CONSUMER [%d] ERROR: disastrOS_semPost mutex_sem\n", this_pid);
-                disastrOS_exit(EXIT_FAILURE);
-            }
-            if (disastrOS_semPost(empty_sem) != 0) {
-                printf("CONSUMER [%d] ERROR: disastrOS_semPost empty_sem\n", this_pid);
-                disastrOS_exit(EXIT_FAILURE);
-            }
-       }
+        printf("CONSUMER [%d] out from CS\n\n", this_pid);
 
+        disastrOS_sleep(10);
     }
 
-    disastrOS_exit(EXIT_SUCCESS);
+    disastrOS_exit(disastrOS_getpid()+1);
 }
 
 void disastrOS_producer(void* args) {
-    // shared_buffer* sh_buff = (shared_buffer*) args;
-    int* buff = (int*) args;
+    shared_data* sd = (shared_data*) args;
+    int test_num = sd->test_num;
     int this_pid = running->pid;
-    int i, j;   // Iterators for the CS
+    int idx;
 
     // Re-open the semaphores in the childs. In semOpen if a semaphore is already opened
     // it will not be reallocated, instead re-used. So here I'm using the same semaphores
@@ -313,67 +329,81 @@ void disastrOS_producer(void* args) {
         printf("PRODUCER [%d] ERROR: disastrOS_semOpen, empty_sem\n", this_pid);
         disastrOS_exit(EXIT_FAILURE);
     }
-
-    int mutex_sem = disastrOS_semOpen(MUTEX_SEM_ID, 1);
-    if (mutex_sem < 0) {
-        printf("PRODUCER [%d] ERROR: disastrOS_semOpen, mutex_sem\n", this_pid);
-        disastrOS_exit(EXIT_FAILURE);
+    
+    int mutex_prod;
+    if (test_num == 2 || test_num == 3) {       // NUM PRODUCERS > 1
+        mutex_prod = disastrOS_semOpen(MUTEX_PROD_ID, 1);
+        if (mutex_prod < 0) {
+            printf("PRODUCER [%d] ERROR: disastrOS_semOpen, mutex_prod\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
     }
     
-    for (i = 0; i < NUM_ITER; i++) {
-        for (j = 0; j < BUFFER_SIZE; j++) {
-        
-            if (disastrOS_semWait(empty_sem) < 0) {
-                printf("PRODUCER [%d] ERROR: disastrOS_semWait empty_sem\n", this_pid);
-                disastrOS_exit(EXIT_FAILURE);
-            }
-            if (disastrOS_semWait(mutex_sem) < 0) {
-                printf("PRODUCER [%d] ERROR: disastrOS_semWait mutex_sem\n", this_pid);
-                disastrOS_exit(EXIT_FAILURE);
-            }
+    while (sd->num_ops_prod > 0) {
 
-            buff[j]++;
-            printf("PRODUCER [%d]:\t Shared buffer at j = %d\t values\t %d\n", this_pid, j, buff[j]);
+        if (disastrOS_semWait(empty_sem) < 0) {
+            printf("PRODUCER [%d] ERROR: disastrOS_semWait empty_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
 
-            //sh_buff->buff[BUFFER_SIZE%i]++;
-            //printf("PRODUCER [%d]:\t Shared buffer value at i = %d\t values\t %d\n", this_pid, BUFFER_SIZE%i, sh_buff->buff[BUFFER_SIZE%i]);
-
-            if (disastrOS_semPost(mutex_sem) != 0) {
-                printf("PRODUCER [%d] ERROR: disastrOS_semPost mutex_sem\n", this_pid);
-                disastrOS_exit(EXIT_FAILURE);
-            }
-            if (disastrOS_semPost(full_sem) != 0) {
-                printf("PRODUECR [%d] ERROR: disastrOS_semPost full_sem\n", this_pid);
+        // Wait on Mutex only if NUM PRODS > 1
+        if (test_num == 2 || test_num == 3) {
+            if (disastrOS_semWait(mutex_prod) < 0) {
+                printf("PRODUCER [%d] ERROR: disastrOS_semWait mutex_prod\n", this_pid);
                 disastrOS_exit(EXIT_FAILURE);
             }
         }
+
+        printf("PRODUCER [%d] in CS\n", this_pid);
+
+        idx = sd->prod_idx;
+        sd->buff[idx]++;
+
+        printf("PRODUCER [%d]: Buffer[%d]\t =\t %d\n", this_pid, idx%BUFFER_SIZE, sd->buff[idx%BUFFER_SIZE]);
+
+        idx++;
+        sd->prod_idx = idx % BUFFER_SIZE;
+        
+        // Same on post
+        if (test_num == 2 || test_num == 3) {
+            if (disastrOS_semPost(mutex_prod) != 0) {
+                printf("PRODUCER [%d] ERROR: disastrOS_semPost mutex_prod\n", this_pid);
+                disastrOS_exit(EXIT_FAILURE);
+            }
+        }
+
+        // Decrease number of total ops for producer
+        sd->num_ops_prod--;
+
+        if (disastrOS_semPost(full_sem) != 0) {
+            printf("PRODUECR [%d] ERROR: disastrOS_semPost full_sem\n", this_pid);
+            disastrOS_exit(EXIT_FAILURE);
+        }
+
+        printf("PRODUCER [%d] out from CS\n\n", this_pid);
+
+        disastrOS_sleep(10);
     }
 
-    disastrOS_exit(EXIT_SUCCESS);
+    disastrOS_exit(disastrOS_getpid()+1);
 }
 
 void disastrOS_semTest(void *args) {
     int test_num = *((int*) args);
     int i;
 
-    /* Declare and fill the shared buffer
-    shared_buffer sh_buff;
+    // Declare and fill the shared struct to pass
+    shared_data data_to_pass;
     for (i = 0; i < BUFFER_SIZE; i++) {
-        sh_buff.buff[i] = 0;
+        data_to_pass.buff[i]        = 0;
+        data_to_pass.prod_idx       = 0;
+        data_to_pass.cons_idx       = 0;
+        data_to_pass.test_num       = test_num;
+        data_to_pass.num_ops_cons   = OPS_PER_CONSUMER;
+        data_to_pass.num_ops_prod   = OPS_PER_PRODUCER;
     }
 
-    int original_buff[BUFFER_SIZE];
-    for (i = 0; i < BUFFER_SIZE; i++) {
-        original_buff[i] = sh_buff.buff[i];
-    }
-    */
-
-    // Buffer to pass to the childs
-    int buff_for_childs[BUFFER_SIZE];
-    for (i = 0; i < BUFFER_SIZE; i++) {
-        buff_for_childs[i] = 0;
-    }
-
+    // Create a copy of the original buffer to confront the solutions
     int solution_buff[BUFFER_SIZE];
     for (i = 0; i < BUFFER_SIZE; i++) {
         solution_buff[i] = 0;
@@ -392,41 +422,46 @@ void disastrOS_semTest(void *args) {
         disastrOS_exit(EXIT_FAILURE);
     }
 
-    int mutex_sem = disastrOS_semOpen(MUTEX_SEM_ID, 1);
-    if (mutex_sem < 0) {
-        printf("PARENT ERROR: disastrOS_semOpen, mutex_sem\n");
+    int mutex_cons = disastrOS_semOpen(MUTEX_CONS_ID, 1);
+    if (mutex_cons < 0) {
+        printf("PARENT ERROR: disastrOS_semOpen, mutex_cons\n");
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    int mutex_prod = disastrOS_semOpen(MUTEX_PROD_ID, 1);
+    if (mutex_prod < 0) {
+        printf("PARENT ERROR: disastrOS_semOpen, mutex_prod\n");
         disastrOS_exit(EXIT_FAILURE);
     }
     
     if (test_num == 1) {            // 1 Prod - N Cons
-        printf("Spawning %d consumers...\n", NUM_CHILDREN);     // Spawn Cons
-        for (i = 0; i < NUM_CHILDREN; i++) {
-            disastrOS_spawn(disastrOS_consumer, &buff_for_childs);
+        printf("Spawning 1 producer...\n");                     // Spawn Prod
+        disastrOS_spawn(disastrOS_producer, &data_to_pass);
+
+        disastrOS_sleep(10);
+
+        printf("Spawning %d consumers...\n", NUM_CONSUMERS);     // Spawn Cons
+        for (i = 0; i < NUM_CONSUMERS; i++) {
+            disastrOS_spawn(disastrOS_consumer, &data_to_pass);
         }
 
-        printf("Spawning 1 producer...\n");                     // Spawn Prod
-        disastrOS_spawn(disastrOS_producer, &buff_for_childs);
+        printf("Consumer spawned\n");
 
         // Wait for the children
-        for (i = 0; i < NUM_CHILDREN + 1; i++) {
+        for (i = 0; i < NUM_CONSUMERS + 1; i++) {
             disastrOS_wait(0, NULL);
         }
 
         // Print solution
         printf("Buffer:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
-            //printf("%d ", sh_buff.buff[i]);
-            printf("%d ", buff_for_childs[i]);
+            printf("%d ", data_to_pass.buff[i]);
         }
         
         printf("\n\n");
         printf("Solution:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
-            /*
-            original_buff[i] += -((NUM_CHILDREN - 1) * NUM_ITER);
-            printf("%d ", original_buff[i]);
-            */
-            solution_buff[i] += -((NUM_CHILDREN - 1) * NUM_ITER); 
+            solution_buff[i] +=  (NUM_PRODUCERS * OPS_PER_PRODUCER) - (NUM_CONSUMERS * OPS_PER_CONSUMER); 
             printf("%d ", solution_buff[i]);
         }
 
@@ -434,73 +469,63 @@ void disastrOS_semTest(void *args) {
 
     } else if (test_num == 2) {     // N Prod - 1 Cons
         printf("Spawning 1 consumer...\n");                     // Spawn Cons
-        disastrOS_spawn(disastrOS_consumer, &buff_for_childs);
+        disastrOS_spawn(disastrOS_consumer, &data_to_pass);
 
-        printf("Spawning %d producers...\n", NUM_CHILDREN);     // Spawn Prods
-        for (i = 0; i < NUM_CHILDREN; i++) {
-            disastrOS_spawn(disastrOS_producer, &buff_for_childs);
+        disastrOS_sleep(10);
+
+        printf("Spawning %d producers...\n", NUM_PRODUCERS);     // Spawn Prods
+        for (i = 0; i < NUM_PRODUCERS; i++) {
+            disastrOS_spawn(disastrOS_producer, &data_to_pass);
         }
 
 
         // Wait for the children
-        for (i = 0; i < NUM_CHILDREN + 1; i++) {
+        for (i = 0; i < NUM_PRODUCERS + 1; i++) {
             disastrOS_wait(0, NULL);
         }
 
         // Print solution
         printf("Buffer:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
-            printf("%d ", buff_for_childs[i]);
+            printf("%d ", data_to_pass.buff[i]);
         }
         
         printf("\n\n");
         printf("Solution:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
-            /*
-            original_buff[i] += (NUM_CHILDREN - 1) * NUM_ITER;
-            printf("%d ", original_buff[i]);
-            */
-            solution_buff[i] += -((NUM_CHILDREN - 1) * NUM_ITER); 
+            solution_buff[i] += (NUM_PRODUCERS * OPS_PER_PRODUCER) - (NUM_CONSUMERS * OPS_PER_CONSUMER); 
             printf("%d ", solution_buff[i]);
         }
 
         printf("\n\n");
 
     } else {                    // N Prod - N Cons
-        /*
-        printf("Spawning %d consumers...\n", NUM_CHILDREN);     // Spawn Cons
-        for (i = 0; i < NUM_CHILDREN; i++) {
-            disastrOS_spawn(disastrOS_consumer, &sh_buff);
+        
+        printf("Spawning %d consumers...\n", NUM_CONSUMERS);     // Spawn Cons
+        for (i = 0; i < NUM_CONSUMERS; i++) {
+            disastrOS_spawn(disastrOS_consumer, &data_to_pass);
         }
         
-        printf("Spawning %d producers...\n", NUM_CHILDREN);     // Spawn Prods
-        for (i = 0; i < NUM_CHILDREN; i++) {
-            disastrOS_spawn(disastrOS_producer, &sh_buff);
-        }
-        */
-
-        printf("Spawning %d producers and %d consumers...\n", NUM_CHILDREN, NUM_CHILDREN);     // Spawn Prods
-        for (i = 0; i < NUM_CHILDREN; i++) {
-            disastrOS_spawn(disastrOS_producer, &buff_for_childs);  // Pid Odd
-            disastrOS_spawn(disastrOS_consumer, &buff_for_childs);  // Pid Even
+        printf("Spawning %d producers...\n", NUM_PRODUCERS);     // Spawn Prods
+        for (i = 0; i < NUM_PRODUCERS; i++) {
+            disastrOS_spawn(disastrOS_producer, &data_to_pass);
         }
 
         // Wait for the children
-        for (i = 0; i < NUM_CHILDREN * 2; i++) {
+        for (i = 0; i < NUM_PRODUCERS + NUM_CONSUMERS; i++) {
             disastrOS_wait(0, NULL);
         }
 
         // Print solution 
         printf("Buffer:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
-            printf("%d ", buff_for_childs[i]);
+            printf("%d ", data_to_pass.buff[i]);
         }
         
         printf("\n\n");
         printf("Solution:\n");
         for (i = 0; i < BUFFER_SIZE; i++) {
-            //printf("%d ", original_buff[i]);
-            printf("%d ", solution_buff[i]);
+            printf("%d ", data_to_pass.buff[i]);
         }
 
         printf("\n\n");
@@ -517,8 +542,13 @@ void disastrOS_semTest(void *args) {
         disastrOS_exit(EXIT_FAILURE);
     }
 
-    if (disastrOS_semClose(mutex_sem) != 0) {
-        printf("PARENT ERROR: disastrOS_semClose, mutex_sem\n");
+    if (disastrOS_semClose(mutex_cons) != 0) {
+        printf("PARENT ERROR: disastrOS_semClose, mutex_cons\n");
+        disastrOS_exit(EXIT_FAILURE);
+    }
+
+    if (disastrOS_semClose(mutex_prod) != 0) {
+        printf("PARENT ERROR: disastrOS_semClose, mutex_prod\n");
         disastrOS_exit(EXIT_FAILURE);
     }
 
