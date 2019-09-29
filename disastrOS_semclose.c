@@ -48,6 +48,8 @@ void internal_semClose(){
     return;
   }
 
+  SemDescriptorPtr* sem_desc_wait_ptr = sem_desc->wait_ptr;
+
   disastrOS_debug("Done!\n");
 
   /*  N.B. The return value of functions "*_free" is a type called PoolAllocatorResult
@@ -81,6 +83,13 @@ void internal_semClose(){
   ret = SemDescriptorPtr_free (sem_desc_ptr);
   if (ret < 0) {
     printf("ERROR: Can't free SemDescriptorPtr\n");
+    running->syscall_retvalue = ret;
+    return;
+  }
+
+  ret = SemDescriptorPtr_free(sem_desc_wait_ptr);
+  if (ret < 0) {
+    printf("ERROR: Can't free sem_desc_wait_ptr\n");
     running->syscall_retvalue = ret;
     return;
   }

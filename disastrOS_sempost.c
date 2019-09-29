@@ -26,15 +26,13 @@ void internal_semPost(){
     running->syscall_retvalue = DSOS_ERESOURCENOFD;
     return;
   }
-
-  SemDescriptorPtr* first_sem_wait_desc_ptr;
   
   sem->count++;
   // If the semaphore count is <= 0 and some other thread is waiting, then resume thread
   if (sem->count <= 0 && sem->waiting_descriptors.first != NULL) {
     
     // Get the descriptor of the first process in the list of waiting descriptors
-    first_sem_wait_desc_ptr = (SemDescriptorPtr*) List_detach(&(sem->waiting_descriptors),
+    SemDescriptorPtr* first_sem_wait_desc_ptr = (SemDescriptorPtr*) List_detach(&(sem->waiting_descriptors),
                                                               (ListItem*) (sem->waiting_descriptors).first);
     
     // Get the pcb of the next process that will run
