@@ -17,22 +17,17 @@
 #define     MUTEX_PROD_ID       3
 
 #define     BUFFER_SIZE         10
-#define     NUM_CONSUMERS       10
-#define     NUM_PRODUCERS       10
-
-#define     OPS_PER_CONSUMER    10 * NUM_PRODUCERS  // Number of effective operations for consumer...
-#define     OPS_PER_PRODUCER    10 * NUM_CONSUMERS  // ... and producer must be the same!
-
+#define     NUM_OPERATIONS      1
 
 typedef struct shared_data {
     int buff[BUFFER_SIZE];
-    int test_num;
     int num_ops_cons;
     int num_ops_prod;
 } shared_data;
 
+// Shared var to track the process
 int cons_idx, prod_idx;
-
+int num_prod, num_cons;
 
 /***************************** SEMOPEN TEST *****************************/
 void semopen_test(void* args) {
@@ -231,7 +226,7 @@ void sempost_test(void* args) {
 /************************** COMPLETE TEST ********************************/
 void disastrOS_consumer(void* args) {
     shared_data* sd = (shared_data*) args;
-    int test_num = sd->test_num;
+    //int test_num = sd->test_num;
     int this_pid = running->pid;
     int i;    // Index for consumer operation
 
@@ -251,7 +246,7 @@ void disastrOS_consumer(void* args) {
     }
 
     int mutex_cons;
-    if (test_num == 1 || test_num == 3) {   // NUM CONSUMERS > 1
+    if (num_cons > 1) {   // NUM CONSUMERS > 1
         mutex_cons = disastrOS_semOpen(MUTEX_CONS_ID, 1);
         if (mutex_cons < 0) {
             printf("CONSUMER [%d] ERROR: disastrOS_semOpen, mutex_cons\n", this_pid);
@@ -267,7 +262,7 @@ void disastrOS_consumer(void* args) {
         }
 
         // Wait on Mutex only if NUM CONS > 1
-        if (test_num == 1 || test_num == 3) {
+        if (num_cons > 1) {
             if (disastrOS_semWait(mutex_cons) < 0) {
                 printf("CONSUMER [%d] ERROR: disastrOS_semWait, mutex_cons\n", this_pid);
                 disastrOS_exit(EXIT_FAILURE);
@@ -281,15 +276,12 @@ void disastrOS_consumer(void* args) {
         cons_idx = (cons_idx + 1) % BUFFER_SIZE;
 
         // Same on post
-        if (test_num == 1 || test_num == 3) {
+        if (num_cons > 1) {
             if (disastrOS_semPost(mutex_cons) != 0) {
                 printf("CONSUMER [%d] ERROR: disastrOS_semPost mutex_cons\n", this_pid);
                 disastrOS_exit(EXIT_FAILURE);
             }
         }
-
-        // Decrease number of total ops for consumer
-        // sd->num_ops_cons--;
 
         if (disastrOS_semPost(empty_sem) != 0) {
             printf("CONSUMER [%d] ERROR: disastrOS_semPost empty_sem\n", this_pid);
@@ -304,7 +296,6 @@ void disastrOS_consumer(void* args) {
 
 void disastrOS_producer(void* args) {
     shared_data* sd = (shared_data*) args;
-    int test_num = sd->test_num;
     int this_pid = running->pid;
     int i;
 
@@ -324,7 +315,7 @@ void disastrOS_producer(void* args) {
     }
     
     int mutex_prod;
-    if (test_num == 2 || test_num == 3) {       // NUM PRODUCERS > 1
+    if (num_prod > 1) {       // NUM PRODUCERS > 1
         mutex_prod = disastrOS_semOpen(MUTEX_PROD_ID, 1);
         if (mutex_prod < 0) {
             printf("PRODUCER [%d] ERROR: disastrOS_semOpen, mutex_prod\n", this_pid);
@@ -340,7 +331,7 @@ void disastrOS_producer(void* args) {
         }
 
         // Wait on Mutex only if NUM PRODS > 1
-        if (test_num == 2 || test_num == 3) {
+        if (num_prod > 1) {
             if (disastrOS_semWait(mutex_prod) < 0) {
                 printf("PRODUCER [%d] ERROR: disastrOS_semWait mutex_prod\n", this_pid);
                 disastrOS_exit(EXIT_FAILURE);
@@ -348,27 +339,18 @@ void disastrOS_producer(void* args) {
         }
 
         printf("PRODUCER [%d] in CS\n", this_pid);
-
-        //idx = sd->prod_idx;
-        //sd->buff[idx]++;
-
+        
         sd->buff[prod_idx]++;
         printf("PRODUCER [%d]: Buffer[%d] =\t %d\n", this_pid, prod_idx%BUFFER_SIZE, sd->buff[prod_idx%BUFFER_SIZE]);
         prod_idx = (prod_idx + 1) % BUFFER_SIZE;
-       
-        //idx++;
-        //sd->prod_idx = idx % BUFFER_SIZE;
         
         // Same on post
-        if (test_num == 2 || test_num == 3) {
+        if (num_prod > 1) {
             if (disastrOS_semPost(mutex_prod) != 0) {
                 printf("PRODUCER [%d] ERROR: disastrOS_semPost mutex_prod\n", this_pid);
                 disastrOS_exit(EXIT_FAILURE);
             }
         }
-
-        // Decrease number of total ops for producer
-        // sd->num_ops_prod--;
 
         if (disastrOS_semPost(full_sem) != 0) {
             printf("PRODUECR [%d] ERROR: disastrOS_semPost full_sem\n", this_pid);
@@ -382,7 +364,6 @@ void disastrOS_producer(void* args) {
 }
 
 void disastrOS_semTest(void *args) {
-    int test_num = *((int*) args);
     int i;
 
     prod_idx = 0;
@@ -393,10 +374,9 @@ void disastrOS_semTest(void *args) {
     for (i = 0; i < BUFFER_SIZE; i++) {
         data_to_pass.buff[i]    = 0;
     }
-    data_to_pass.test_num       = test_num;
-    data_to_pass.num_ops_cons   = OPS_PER_CONSUMER;
-    data_to_pass.num_ops_prod   = OPS_PER_PRODUCER;
-
+    data_to_pass.num_ops_cons = num_prod * NUM_OPERATIONS;
+    data_to_pass.num_ops_prod = num_cons * NUM_OPERATIONS;
+   
     // Create a copy of the original buffer to confront the solutions
     int solution_buff[BUFFER_SIZE];
     for (i = 0; i < BUFFER_SIZE; i++) {
@@ -428,97 +408,37 @@ void disastrOS_semTest(void *args) {
         disastrOS_exit(EXIT_FAILURE);
     }
     
-    if (test_num == 1) {            // 1 Prod - N Cons
-
-        printf("Spawning %d consumers...\n", NUM_CONSUMERS);     // Spawn Cons
-        for (i = 0; i < NUM_CONSUMERS; i++) {
-            disastrOS_spawn(disastrOS_consumer, &data_to_pass);
-        }
-
-        printf("Spawning 1 producer...\n");                     // Spawn Prod
-        disastrOS_spawn(disastrOS_producer, &data_to_pass);
-
-        // Wait for the children
-        for (i = 0; i < NUM_CONSUMERS + 1; i++) {
-            disastrOS_wait(0, NULL);
-        }
-
-        // Print solution
-        printf("Buffer:\n");
-        for (i = 0; i < BUFFER_SIZE; i++) {
-            printf("%d ", data_to_pass.buff[i]);
-        }
-        
-        printf("\n\n");
-        printf("Solution:\n");
-        for (i = 0; i < BUFFER_SIZE; i++) {
-            solution_buff[i] +=  (NUM_PRODUCERS * OPS_PER_PRODUCER) - (NUM_CONSUMERS * OPS_PER_CONSUMER); 
-            printf("%d ", solution_buff[i]);
-        }
-
-        printf("\n\n");
-
-    } else if (test_num == 2) {     // N Prod - 1 Cons
-
-        printf("Spawning %d producers...\n", NUM_PRODUCERS);     // Spawn Prods
-        for (i = 0; i < NUM_PRODUCERS; i++) {
-            disastrOS_spawn(disastrOS_producer, &data_to_pass);
-        }
-
-        printf("Spawning 1 consumer...\n");                     // Spawn Cons
+    
+    // N Prod - M Cons    
+    printf("Spawning %d consumers...\n", num_cons);     // Spawn Cons
+    for (i = 0; i < num_cons; i++) {
         disastrOS_spawn(disastrOS_consumer, &data_to_pass);
-
-        // Wait for the children
-        for (i = 0; i < NUM_PRODUCERS + 1; i++) {
-            disastrOS_wait(0, NULL);
-        }
-
-        // Print solution
-        printf("Buffer:\n");
-        for (i = 0; i < BUFFER_SIZE; i++) {
-            printf("%d ", data_to_pass.buff[i]);
-        }
-        
-        printf("\n\n");
-        printf("Solution:\n");
-        for (i = 0; i < BUFFER_SIZE; i++) {
-            solution_buff[i] += (NUM_PRODUCERS * OPS_PER_PRODUCER) - (NUM_CONSUMERS * OPS_PER_CONSUMER); 
-            printf("%d ", solution_buff[i]);
-        }
-
-        printf("\n\n");
-
-    } else {                    // N Prod - N Cons
-        
-        printf("Spawning %d consumers...\n", NUM_CONSUMERS);     // Spawn Cons
-        for (i = 0; i < NUM_CONSUMERS; i++) {
-            disastrOS_spawn(disastrOS_consumer, &data_to_pass);
-        }
-        
-        printf("Spawning %d producers...\n", NUM_PRODUCERS);     // Spawn Prods
-        for (i = 0; i < NUM_PRODUCERS; i++) {
-            disastrOS_spawn(disastrOS_producer, &data_to_pass);
-        }
-
-        // Wait for the children
-        for (i = 0; i < NUM_PRODUCERS + NUM_CONSUMERS; i++) {
-            disastrOS_wait(0, NULL);
-        }
-
-        // Print solution 
-        printf("Buffer:\n");
-        for (i = 0; i < BUFFER_SIZE; i++) {
-            printf("%d ", data_to_pass.buff[i]);
-        }
-        
-        printf("\n\n");
-        printf("Solution:\n");
-        for (i = 0; i < BUFFER_SIZE; i++) {
-            printf("%d ", solution_buff[i]);
-        }
-
-        printf("\n\n");
     }
+    
+    printf("Spawning %d producers...\n", num_prod);     // Spawn Prods
+    for (i = 0; i < num_prod; i++) {
+        disastrOS_spawn(disastrOS_producer, &data_to_pass);
+    }
+
+    // Wait for the children
+    for (i = 0; i < num_cons + num_prod; i++) {
+        disastrOS_wait(0, NULL);
+    }
+
+    // Print solution 
+    printf("Buffer:\n");
+    for (i = 0; i < BUFFER_SIZE; i++) {
+        printf("%d ", data_to_pass.buff[i]);
+    }
+    
+    printf("\n\n");
+    printf("Solution:\n");
+    for (i = 0; i < BUFFER_SIZE; i++) {
+        printf("%d ", solution_buff[i]);
+    }
+
+    printf("\n\n");
+    
 
     // Close all opened semaphores
     if (disastrOS_semClose(full_sem) != 0) {
@@ -575,22 +495,17 @@ int main(int argc, char** argv) {
         disastrOS_start(sempost_test, 0, logfilename);
     } else if (test_num == 5) {
         printf("\nHere you can test all the different models of Producer-Consumer\n\n");
-        printf("1 - 1 Producer  and N Consumers\n2 - N Producers and 1 Consumer\n3 - N Producers and N Consumers\n\n");
 
-        int compl_test_num = 0;
-        scanf("%d", &compl_test_num);
-        if (compl_test_num == 1) {
-            printf("\nTEST NO.1: 1 Prod - N Cons\n\n");
-            disastrOS_start(disastrOS_semTest, &compl_test_num, logfilename);
-        } else if (compl_test_num == 2) {
-            printf("\nTEST NO.2: N Prod - 1 Cons\n\n");
-            disastrOS_start(disastrOS_semTest, &compl_test_num, logfilename);
-        } else if (compl_test_num == 3) {
-            printf("\nTEST NO.3: N Prod - N Cons\n\n");
-            disastrOS_start(disastrOS_semTest, &compl_test_num, logfilename);
-        } else {
-            printf("\nWrong input. Sayonara!\n\n");
-        }
+        printf("Insert number of producers: ");
+        scanf("%d", &num_prod);
+        printf("\n");
+        
+        printf("Insert nuber of consumers: ");
+        scanf("%d", &num_cons);
+        printf("\n\n");
+
+        disastrOS_start(disastrOS_semTest, 0, logfilename);
+
 
     } else {
         printf("\nWrong input. Sayonara!\n\n");
