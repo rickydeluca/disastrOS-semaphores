@@ -374,6 +374,7 @@ void disastrOS_semTest(void *args) {
     for (i = 0; i < BUFFER_SIZE; i++) {
         data_to_pass.buff[i]    = 0;
     }
+    // Number of effective ops for the producers and the consumers must be the same
     data_to_pass.num_ops_cons = num_prod * NUM_OPERATIONS;
     data_to_pass.num_ops_prod = num_cons * NUM_OPERATIONS;
    
