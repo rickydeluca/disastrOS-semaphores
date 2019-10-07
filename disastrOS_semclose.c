@@ -94,12 +94,12 @@ void internal_semClose(){
     return;
   }
 
-  disastrOS_debug("Done!\n");
-
-  disastrOS_debug("Unlinking the semaphore... ");
-
   // Check if I detached all the descriptors. If true no process is still using the semaphore so I can unlink it
-  if (sem->descriptors.size == 0) {
+  int check_size_descriptors_list = sem->descriptors.size;
+
+  if (check_size_descriptors_list > 0) {  // if > 0 then some other process is using the semaphore
+    running->syscall_retvalue = 0;
+  } else {
     sem = (Semaphore*) List_detach(&semaphores_list, (ListItem*) sem);
     ret = Semaphore_free(sem);
     if (ret < 0) {
@@ -107,10 +107,10 @@ void internal_semClose(){
       running->syscall_retvalue = ret;
       return;
     }
-  }
 
-  disastrOS_debug("Done!\n");
-  disastrOS_debug("\n \n");
+  // On success return 0
+  running->syscall_retvalue = 0;
+  }
 
   // On success return 0
   running->syscall_retvalue = 0;
