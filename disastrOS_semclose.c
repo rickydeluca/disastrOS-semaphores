@@ -96,19 +96,6 @@ void internal_semClose(){
 
   disastrOS_debug("Done!\n");
 
-  disastrOS_debug("Unlinking the semaphore... ");
-
-  // Finally unlink the semaphore
-  if (sem->descriptors.size == 0) {
-    sem = (Semaphore*) List_detach(&semaphores_list, (ListItem*) sem);
-    ret = Semaphore_free(sem);
-    if (ret < 0) {
-      printf("ERROR: Can't free Semaphore\n");
-      running->syscall_retvalue = ret;
-      return;
-    }
-  }
-
   disastrOS_debug("Done!\n");
   disastrOS_debug("\n \n");
 
