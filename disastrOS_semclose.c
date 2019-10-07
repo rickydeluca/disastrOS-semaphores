@@ -96,6 +96,19 @@ void internal_semClose(){
 
   disastrOS_debug("Done!\n");
 
+  disastrOS_debug("Unlinking the semaphore... ");
+
+  // Check if I detached all the descriptors. If true no process is still using the semaphore so I can unlink it
+  if (sem->descriptors.size == 0) {
+    sem = (Semaphore*) List_detach(&semaphores_list, (ListItem*) sem);
+    ret = Semaphore_free(sem);
+    if (ret < 0) {
+      printf("ERROR: Can't free the semaphore\n");
+      running->syscall_retvalue = ret;
+      return;
+    }
+  }
+
   disastrOS_debug("Done!\n");
   disastrOS_debug("\n \n");
 
