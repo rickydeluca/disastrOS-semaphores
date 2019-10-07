@@ -112,6 +112,4 @@ void internal_semClose(){
   running->syscall_retvalue = 0;
   }
 
-  // On success return 0
-  running->syscall_retvalue = 0;
 }
