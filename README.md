@@ -32,13 +32,13 @@ To compile simply use make while to test digit:
     
     ./disastrOS_my_semtest
 
-Then:
+Then:\
      1) Test semOpen\
      2) Test semClose\
      3) Test semWait\
      4) Test semPost\
      5) Complete test menu\
-     6) Test multi semClose\
+     6) Test multi semClose
 
 In the complete test menu, you can test a producer - consumer model.
 The number of producers and consumers can be chosen arbitrarily simply by typing it. (They can be different)
