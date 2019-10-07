@@ -1,5 +1,6 @@
 #include    <stdio.h>
 #include    <stdlib.h>
+#include    <unistd.h>
 
 #include    "disastrOS.h"
 #include    "disastrOS_semaphore.h"
@@ -15,9 +16,30 @@
 #define     EMPTY_SEM_ID        1
 #define     MUTEX_CONS_ID       2
 #define     MUTEX_PROD_ID       3
+#define     TEST_SEM_ID         4
 
 #define     BUFFER_SIZE         10
-#define     NUM_OPERATIONS      1
+#define     NUM_OPERATIONS      10
+
+
+// To avoid to have the ready list empty
+void sleeperFunction(   void* args){
+  printf("Hello, I am the sleeper, and I sleep %d\n",disastrOS_getpid());
+  while(1) {
+    getc(stdin);
+    disastrOS_printStatus();
+  }
+}
+
+// Function for avoiding compulsive stamps
+void dreamALittleDream(int times) {
+    int i = 0;
+    for (i = 0; i < times; i++) {
+        sleep(1);
+    }
+
+    printf("\n");
+}
 
 typedef struct shared_data {
     int buff[BUFFER_SIZE];
@@ -375,14 +397,17 @@ void disastrOS_semTest(void *args) {
         data_to_pass.buff[i]    = 0;
     }
     // Number of effective ops for the producers and the consumers must be the same
-    data_to_pass.num_ops_cons = num_prod * NUM_OPERATIONS;
-    data_to_pass.num_ops_prod = num_cons * NUM_OPERATIONS;
+    data_to_pass.num_ops_cons = num_prod;   //* NUM_OPERATIONS;
+    data_to_pass.num_ops_prod = num_cons;   //* NUM_OPERATIONS;
    
     // Create a copy of the original buffer to confront the solutions
     int solution_buff[BUFFER_SIZE];
     for (i = 0; i < BUFFER_SIZE; i++) {
         solution_buff[i] = 0;
     }
+    
+    // Start the sleeper process
+    disastrOS_spawn(sleeperFunction, 0);
 
     // Open the semaphores
     int full_sem = disastrOS_semOpen(FULL_SEM_ID, 0);
@@ -468,6 +493,75 @@ void disastrOS_semTest(void *args) {
 }
 /*************************************************************************/
 
+/************************** MULTI SEM CLOSE ******************************/
+void closeTheSem(void* args) {
+
+    int sem_test = disastrOS_semOpen(TEST_SEM_ID, 1);
+     if (sem_test < 0) {
+        printf("CHILD ERROR: disastrOS_semOpen, sem_test\n");
+        disastrOS_exit(DSOS_ERESOURCEOPEN);
+    }
+
+    if (disastrOS_semClose(sem_test) != 0) {
+        printf("CHILD ERROR: disastrOS_semClose, sem_test\n");
+        disastrOS_exit(DSOS_ERESOURCECLOSE);
+    }
+
+    disastrOS_exit(disastrOS_getpid());
+}
+
+void multiSemCloseTest(void* args) {
+    int num_proc = *((int*) args);
+    int i = 0;
+
+    printf("Status before opening the semaphore\n");
+    disastrOS_printStatus();
+
+    printf("Opening the semaphore\n");
+    
+    // Open the semaphores
+    int sem_test = disastrOS_semOpen(TEST_SEM_ID, 1);
+    if (sem_test < 0) {
+        printf("PARENT ERROR: disastrOS_semOpen, sem_test\n");
+        disastrOS_exit(DSOS_ERESOURCEOPEN);
+    }
+
+    dreamALittleDream(20);
+    
+    printf("Status after opening the semaphore\n");
+    disastrOS_printStatus();
+    
+    printf("Closing multiple times the same semaphores with %d processes\n", num_proc);
+    // Spawn the processes
+    for (i = 0; i < num_proc; i++) {
+        disastrOS_spawn(closeTheSem, 0);
+    }
+
+    dreamALittleDream(20);
+
+    // Wait for the processes
+    for (i = 0; i < num_proc; i++) {
+        disastrOS_wait(0, NULL);
+    }
+
+    printf("Status:\n");
+    disastrOS_printStatus();
+
+    printf("Closing the semaphore in the main\n");
+    if (disastrOS_semClose(sem_test) != 0) {
+        printf("PARENT ERROR: disastrOS_semClose, sem_test\n");
+        disastrOS_exit(DSOS_ERESOURCECLOSE);
+    }
+
+    dreamALittleDream(20);
+
+    printf("Status:\n");
+    disastrOS_printStatus();
+
+    disastrOS_shutdown();
+}
+/*************************************************************************/
+
 
 int main(int argc, char** argv) {
     int test_num;
@@ -478,7 +572,7 @@ int main(int argc, char** argv) {
     }
    
     // tests
-    printf("What would you like to test?\n    1 - semOpen\n    2 - semClose\n    3 - semWait\n    4 - semPost\n    5 - Complete test menu\n");
+    printf("What would you like to test?\n    1 - semOpen\n    2 - semClose\n    3 - semWait\n    4 - semPost\n    5 - Complete test menu\n    6 - Multi semClose\n");
 
     scanf("%d", &test_num);
     if (test_num == 1) {
@@ -506,7 +600,15 @@ int main(int argc, char** argv) {
         printf("\n\n");
 
         disastrOS_start(disastrOS_semTest, 0, logfilename);
+    } else if (test_num == 6) {
+        printf("Tring to close the same semaphore with different processes\n\n");
 
+        int num_proc = 0;
+        printf("Insert how many processes should close the semaphore: ");
+        scanf("%d", &num_proc);
+        printf("\n\n");
+
+        disastrOS_start(multiSemCloseTest, &num_proc, logfilename);
 
     } else {
         printf("\nWrong input. Sayonara!\n\n");
